@@ -20,7 +20,7 @@ npm ci
 npm run dev
 ```
 
-Open the local address printed by Vite. The app uses React, Three.js, Vinext and the Cloudflare Vite integration. The existing `.openai/hosting.json` identifies the connected Site and must be preserved when updating that Site. Local rendering does not require a GitHub token or any model API key.
+Open the local address printed by Next.js. The default scripts use native Next.js so the project can be deployed directly to Vercel. The existing Vinext/Cloudflare workflow is still available through the `*:cloudflare` scripts and `.openai/hosting.json` is preserved.
 
 ```sh
 npm run typecheck
@@ -29,6 +29,32 @@ npm run build
 ```
 
 `typecheck` checks the application and UI source. `npm test` validates model integrity, step coverage, LOD buffers, deterministic packing and non-overlapping transformed bounds at five aspect ratios. It also reports a CPU-only instance-update benchmark. `npm run test:starter` is the inherited framework contract suite.
+
+## Deploy to Vercel
+
+Import this repository into Vercel and keep the project root at the repository root. Vercel should detect **Next.js** automatically.
+
+Recommended settings:
+
+- Framework Preset: `Next.js`
+- Install Command: `npm ci`
+- Build Command: `npm run build`
+- Output Directory: leave empty/default
+- Node.js: 22.x or newer compatible with the package engine
+
+No runtime API key is required for the 3D viewer. The geometry and model metadata are served from `public/model/` as static assets.
+
+If the Vercel project was previously created with Vite/Other as its framework preset, change the preset to Next.js or create a fresh Vercel project from this repository.
+
+### Cloudflare/Vinext compatibility
+
+The previous hosting path has not been removed:
+
+```sh
+npm run dev:cloudflare
+npm run build:cloudflare
+npm run start:cloudflare
+```
 
 ## Rendering design
 
