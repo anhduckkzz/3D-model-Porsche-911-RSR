@@ -1,0 +1,26 @@
+Porsche 911 RSR / Assembly Atlas
+
+3D MODEL
+42096 - Porsche 911 RSR by Philippe Hurbain [Philo], created with LDCad.
+Original model: https://www.brickshelf.com/gallery/Philo/SetModels/Set42096/42096_-_porsche_911_rsr.mpd
+Author's publication: https://forums.ldraw.org/thread-23139.html
+Original model license: Redistributable under CCAL version 2.0 (CC BY 2.0).
+https://creativecommons.org/licenses/by/2.0/
+The MPD source and its embedded original copyright headers are retained in scripts/source/porsche.mpd.
+Adaptations: normalized embedded paths for Three.js; converted source geometry to indexed shared buffers; per-part instance transforms; generated construction phases and display groups; meshoptimizer low detail indices with an error bound; omitted source edge lines for performance.
+The source states that stickers are not included. 1,586 model elements are displayed; this differs from LEGO's 1,580 retail-piece count and is not a verified bill of materials. Source sequence (216 generated phases) is not aligned one-to-one with the 503 official instruction steps.
+
+LDRAW PARTS
+Official LDraw parts library. Parts retain authorship and licensing in the source library. CC BY 4.0 and legacy CC BY 2.0 / CC BY 4.0 as specified by source headers. Attribution for used geometry files is included in ldraw-part-credits.txt.
+https://www.ldraw.org/
+https://library.ldraw.org/
+https://creativecommons.org/licenses/by/4.0/
+CAreadme.txt, CAlicense.txt, and CAlicense4.txt are retained alongside this file.
+
+REFERENCE
+Interaction inspiration: Human Atlas by ashemag, https://github.com/ashemag/human-atlas (MIT). No Human Atlas application code or anatomy assets have been copied.
+
+LIBRARIES
+Three.js (MIT), meshoptimizer (MIT), React (MIT), Radix UI (MIT), Lucide (ISC), and dependencies retain their respective licenses.
+
+This independent viewer is not affiliated with or endorsed by the LEGO Group or Porsche. LEGO and Porsche are trademarks of their respective owners.
