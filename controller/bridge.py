@@ -7,6 +7,7 @@ import time
 from protocol import CHAR_UUID, build_cmd, clamp_speed
 
 LOCAL_TOKEN = '42096-local'
+ADDRESS = '13:12:05:04:93:7B'
 
 class Controller:
     def __init__(self, client, clock=time.monotonic):
@@ -74,20 +75,11 @@ class Controller:
                     await asyncio.wait_for(self.client.write_gatt_char(CHAR_UUID, build_cmd(self.fb, 0), response=False), 1)
 
 async def main(args):
-    from bleak import BleakClient, BleakScanner
+    from bleak import BleakClient
     from websockets.asyncio.server import serve
     token = LOCAL_TOKEN
     owner = asyncio.Lock()
-    async def device():
-        if args.address:
-            return args.address
-        devices = await BleakScanner.discover(timeout=5, return_adv=True)
-        matches = [d for d, a in devices.values() if (a.local_name or d.name or '').startswith(('QY_', 'CB26'))]
-        if not matches:
-            raise ValueError('Không tìm thấy xe. Hãy bật hub Bluetooth.')
-        if len(matches) > 1:
-            raise ValueError('Tìm thấy nhiều hub QY / CB26.')
-        return matches[0]
+
     async def handle(ws):
         controller = None
         client = None
@@ -105,13 +97,18 @@ async def main(args):
             await owner.acquire()
             acquired = True
             await ws.send(json.dumps(dict(type='connecting')))
-            client = BleakClient(await device())
+
+            # Match the known-good bluetooth.py path exactly: connect straight to
+            # the calibrated hub address instead of spending 5 seconds scanning
+            # and then filtering on the advertised device name.
+            client = BleakClient(ADDRESS)
             await client.connect()
             if not client.services.get_characteristic(CHAR_UUID):
                 raise ValueError('Không tìm thấy characteristic điều khiển.')
             controller = Controller(client)
             await controller.stop()
             await ws.send(json.dumps(controller.state()))
+
             async def watch():
                 while True:
                     await asyncio.sleep(.025)
@@ -128,6 +125,7 @@ async def main(args):
                         return
                     if before != controller.state():
                         await ws.send(json.dumps(controller.state()))
+
             watchdog = asyncio.create_task(watch())
             async for raw in ws:
                 message = json.loads(raw)
@@ -166,6 +164,7 @@ async def main(args):
             finally:
                 if acquired:
                     owner.release()
+
     print('Porsche local controller ready on ws://127.0.0.1:' + str(args.port))
     async with serve(handle, '127.0.0.1', args.port, origins=[args.origin], max_size=2048, max_queue=1, ping_interval=10, ping_timeout=5):
         await asyncio.Future()
@@ -173,7 +172,6 @@ async def main(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--origin', default='http://localhost:3000')
-    parser.add_argument('--address')
     parser.add_argument('--port', type=int, default=8765)
     try:
         asyncio.run(main(parser.parse_args()))
