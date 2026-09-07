@@ -15,6 +15,11 @@ if not exist node_modules\ (
   call npm install || goto :error
 )
 
+rem Stop an old minimized bridge from a previous run so port 8765 never points
+rem at stale code/token. This launcher is intentionally local-machine only.
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$p=Get-CimInstance Win32_Process ^| Where-Object { $_.CommandLine -and $_.CommandLine -like '*controller\bridge.py*' }; $p ^| ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }" >nul 2>nul
+timeout /t 1 /nobreak >nul
+
 start "Porsche BLE Controller" /min cmd /c "python controller\bridge.py"
 start "Porsche Web" /min cmd /c "npm run dev"
 
