@@ -71,4 +71,15 @@ export function sampleExplosion(plan:ExplosionPlan,id:number,amount:number,out:P
  const local=a.center.clone().sub(a.position).applyQuaternion(a.quaternion.clone().invert()).divide(a.scale);
  out.position.copy(local).multiply(out.scale).applyQuaternion(out.quaternion).negate().add(out.center);return out;
 }
-export function advanceExplosion(current:number,target:number,seconds:number){const distance=Math.max(0,Math.min(seconds,.05))*1.1;return current+Math.sign(target-current)*Math.min(Math.abs(target-current),distance)}
+/** Legacy Human Atlas-style explode: rigid group offsets, then one flat inventory plane. */
+export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vector3,amount:number,out:PiecePose){
+ const a=Math.max(0,Math.min(1,amount));
+ if(a<=.4){
+  const t=a/.4;out.position.copy(base.position).addScaledVector(offset,t);out.quaternion.copy(base.quaternion);out.scale.copy(base.scale);out.center.copy(base.center).addScaledVector(offset,t);
+ }else{
+  const t=(a-.4)/.6;out.position.copy(base.position).add(offset).lerp(flat.position,t);out.quaternion.copy(base.quaternion).slerp(flat.quaternion,t);out.scale.copy(base.scale).lerp(flat.scale,t);out.center.copy(base.center).add(offset).lerp(flat.center,t);
+ }
+ return out;
+}
+
+export function advanceExplosion(current:number,target:number,seconds:number){const distance=Math.max(0,Math.min(seconds,.05))*1.65;return current+Math.sign(target-current)*Math.min(Math.abs(target-current),distance)}
