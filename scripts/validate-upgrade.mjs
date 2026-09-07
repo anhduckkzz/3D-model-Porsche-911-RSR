@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import * as T from 'three';
 import {assemblyFrame} from '../app/assembly-guide.ts';
-import {createFlatLayout,groupOffsets,legacyExplosionSplit,sampleLegacyExplosion,advanceExplosion} from '../app/explosion-layout.ts';
+import {createFlatLayout,groupOffsets,sampleLegacyExplosion,advanceExplosion} from '../app/explosion-layout.ts';
 import {DriveIntent,motorFrame} from '../app/vehicle-protocol.ts';
 
 const model=JSON.parse(fs.readFileSync('public/model/model.json'));
@@ -45,16 +45,15 @@ const transformedBox=(part,pose)=>{
 for(const aspect of [.4,1,1.8,3]){
  const layout=createFlatLayout(model.parts,model,aspect);
  const offsets=groupOffsets(model);
- const split=legacyExplosionSplit(model.parts,model,layout,offsets);
  const bases=model.parts.map(poseFromPart);
- const sample=(id,amount)=>sampleLegacyExplosion(bases[id],layout.poses.get(id),offsets.get(model.parts[id].group)??new T.Vector3(),amount,emptyPose(),split);
+ const sample=(id,amount)=>sampleLegacyExplosion(bases[id],layout.poses.get(id),offsets.get(model.parts[id].group)??new T.Vector3(),amount,emptyPose());
  const speed=(a,b)=>model.parts.reduce((total,p)=>total+sample(p.id,a).position.distanceTo(sample(p.id,b).position),0)/(b-a);
 
  // Each stage is a straight, linear interpolation. This guards against the old slow-then-fast easing.
- assert(Math.abs(speed(0,split*.5)-speed(split*.5,split))<1e-5);
- assert(Math.abs(speed(split+(1-split)*.2,split+(1-split)*.5)-speed(split+(1-split)*.5,split+(1-split)*.8))<1e-5);
+ assert(Math.abs(speed(0,.2)-speed(.2,.4))<1e-5);
+ assert(Math.abs(speed(.55,.75)-speed(.75,.95))<1e-5);
  for(const p of model.parts){
-  const start=sample(p.id,0),grouped=sample(p.id,split),flat=sample(p.id,1);
+  const start=sample(p.id,0),grouped=sample(p.id,.4),flat=sample(p.id,1);
   assert(start.position.distanceTo(bases[p.id].position)<1e-6);
   assert(grouped.position.distanceTo(bases[p.id].position.clone().add(offsets.get(p.group)??new T.Vector3()))<1e-6);
   assert(flat.position.distanceTo(layout.poses.get(p.id).position)<1e-6);
