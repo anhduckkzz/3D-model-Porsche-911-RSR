@@ -1,0 +1,2 @@
+bleak>=0.22,<3
+websockets>=14,<17

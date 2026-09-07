@@ -42,3 +42,8 @@ next-env.d.ts
 /work/
 
 *.tsbuildinfo
+
+# Local Python controller
+__pycache__/
+*.pyc
+.venv/

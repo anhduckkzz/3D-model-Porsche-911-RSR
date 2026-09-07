@@ -13,12 +13,15 @@
     "dev:cloudflare": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vite",
     "build:cloudflare": "bash scripts/build-verified.sh",
     "start:cloudflare": "WRANGLER_LOG_PATH=.wrangler/wrangler.log vinext start",
-    "test": "npm run test:assets",
+    "test": "npm run test:assets && npm run test:upgrade && npm run test:link",
     "lint": "bash scripts/sites-env.sh -- eslint . --ignore-pattern dist --ignore-pattern .next",
     "db:generate": "bash scripts/sites-env.sh -- drizzle-kit generate",
     "test:assets": "node --experimental-strip-types scripts/validate-assets.mjs",
     "typecheck": "tsc --noEmit --incremental false -p tsconfig.app.json",
-    "test:starter": "npm run build && node --test tests/*.test.mjs"
+    "test:starter": "npm run build && node --test tests/*.test.mjs",
+    "prepare:assembly": "node scripts/prepare-assembly.mjs",
+    "test:upgrade": "node --experimental-strip-types scripts/validate-upgrade.mjs",
+    "test:link": "node --experimental-strip-types scripts/validate-link.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
