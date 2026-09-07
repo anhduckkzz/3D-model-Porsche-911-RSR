@@ -1,13 +1,12 @@
 """Zero-config local BLE bridge for the Porsche 911 RSR controller."""
 import argparse
 import asyncio
-import hmac
 import json
 import time
 from protocol import CHAR_UUID, build_cmd, clamp_speed
 
-LOCAL_TOKEN = '42096-local'
 ADDRESS = '13:12:05:04:93:7B'
+
 
 class Controller:
     def __init__(self, client, clock=time.monotonic):
@@ -74,10 +73,11 @@ class Controller:
                 if self.armed:
                     await asyncio.wait_for(self.client.write_gatt_char(CHAR_UUID, build_cmd(self.fb, 0), response=False), 1)
 
+
 async def main(args):
     from bleak import BleakClient
     from websockets.asyncio.server import serve
-    token = LOCAL_TOKEN
+
     owner = asyncio.Lock()
 
     async def handle(ws):
@@ -86,35 +86,30 @@ async def main(args):
         watchdog = None
         acquired = False
         try:
-            hello = json.loads(await asyncio.wait_for(ws.recv(), 5))
-            supplied = hello.get('token')
-            if hello.get('type') != 'auth' or not isinstance(supplied, str) or not hmac.compare_digest(supplied, token):
-                await ws.close(1008, 'Token không hợp lệ')
-                return
             if owner.locked():
                 await ws.close(1008, 'Xe đang được điều khiển bởi phiên khác')
                 return
             await owner.acquire()
             acquired = True
-            await ws.send(json.dumps(dict(type='connecting')))
 
-            # Match the known-good bluetooth.py path exactly: connect straight to
-            # the calibrated hub address instead of spending 5 seconds scanning
-            # and then filtering on the advertised device name.
+            # Use the exact path that is known to work in bluetooth.py:
+            # fixed BLE address -> BleakClient -> fixed control characteristic.
+            print(f'Web requested vehicle connection -> {ADDRESS}', flush=True)
             client = BleakClient(ADDRESS)
             await client.connect()
             if not client.services.get_characteristic(CHAR_UUID):
                 raise ValueError('Không tìm thấy characteristic điều khiển.')
+
             controller = Controller(client)
             await controller.stop()
             await ws.send(json.dumps(controller.state()))
+            print('Vehicle connected.', flush=True)
 
             async def watch():
                 while True:
                     await asyncio.sleep(.025)
                     if not client.is_connected:
-                        await controller.stop()
-                        await ws.send(json.dumps(controller.state()))
+                        await ws.send(json.dumps(dict(type='state', connected=False, armed=False, fb=0, lr=0)))
                         await ws.close(1011, 'Mất kết nối BLE')
                         return
                     before = controller.state()
@@ -129,16 +124,22 @@ async def main(args):
             watchdog = asyncio.create_task(watch())
             async for raw in ws:
                 message = json.loads(raw)
-                if message.get('type') == 'arm':
+                kind = message.get('type')
+                # Backward compatible with an older browser tab. Authentication
+                # is unnecessary because this server only binds to 127.0.0.1.
+                if kind == 'auth':
+                    continue
+                if kind == 'arm':
                     await controller.arm()
-                elif message.get('type') == 'drive':
+                elif kind == 'drive':
                     await controller.drive(message)
-                elif message.get('type') == 'stop':
+                elif kind == 'stop':
                     await controller.stop()
                 else:
                     raise ValueError('Loại lệnh điều khiển không hợp lệ.')
                 await ws.send(json.dumps(controller.state()))
         except Exception as error:
+            print(f'Controller error: {type(error).__name__}: {error}', flush=True)
             if controller:
                 try:
                     await controller.stop()
@@ -165,13 +166,14 @@ async def main(args):
                 if acquired:
                     owner.release()
 
-    print('Porsche local controller ready on ws://127.0.0.1:' + str(args.port))
-    async with serve(handle, '127.0.0.1', args.port, origins=[args.origin], max_size=2048, max_queue=1, ping_interval=10, ping_timeout=5):
+    print('Porsche local controller ready on ws://127.0.0.1:' + str(args.port), flush=True)
+    # Local-machine only: no token, no origin configuration, no BLE scan.
+    async with serve(handle, '127.0.0.1', args.port, max_size=2048, max_queue=1, ping_interval=10, ping_timeout=5):
         await asyncio.Future()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--origin', default='http://localhost:3000')
     parser.add_argument('--port', type=int, default=8765)
     try:
         asyncio.run(main(parser.parse_args()))
