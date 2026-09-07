@@ -77,3 +77,51 @@
 @media(max-width:1050px) and (min-width:700px){.mode-switch [data-slot=tabs-trigger]{padding:0 13px}.assembly-navigation{left:22px}.drive-panel{right:22px;width:250px;padding:17px}.drive-pad-area{left:calc((100% - 265px)/2);gap:15px}.drive-pad-copy{max-width:180px;white-space:normal}.drive-identity{left:22px}.telemetry-note{display:none}}
 @media(max-height:750px) and (min-width:700px){.drive-panel{top:90px;padding:16px}.drive-section{padding-top:14px}.drive-label{margin-bottom:10px}.drive-panel h2{margin-bottom:12px}.drive-presets{margin-top:7px}.drive-section p{margin-top:9px}.command-readout{margin-top:13px;padding:12px 0}.drive-status{margin-top:8px}.assembly-navigation{top:95px;gap:10px}}
 @media(max-width:699px){.mode-switch [data-slot=tabs-trigger]{padding:0 15px}.assembly-navigation{top:125px;left:18px;max-width:calc(100% - 70px);gap:10px}.assembly-breadcrumb{font-size:10px;gap:3px}.assembly-breadcrumb button{max-width:95px}.assembly-context{gap:14px}.assembly-context button{font-size:11px;padding-bottom:6px}.return-assembly{font-size:11px}.assembly-tree{max-height:60dvh}.build-mode .guide{max-height:210px;overflow:auto}.build-guide .review-assembly,.build-guide .assembly-next{grid-column:1/3;padding:9px 12px;font-size:11px}.build-guide .parts-list{max-height:32px}.build-mode .step-entry{font-size:11px}.drive-identity{top:126px;left:18px}.drive-identity h2{font-size:16px;margin:7px 0 10px}.drive-identity .small-label{font-size:9px}.drive-panel{top:auto;bottom:139px;left:18px;right:18px;width:auto;padding:14px;display:grid;grid-template-columns:1fr 1fr;gap:10px 15px}.drive-panel-heading{grid-column:1/2}.drive-panel-heading .small-label{font-size:8px}.drive-panel-heading h2{font-size:12px;margin:5px 0 0}.drive-panel-heading .icon-button{width:24px;height:27px;margin:0}.drive-panel>.connect-button{grid-column:2;grid-row:1;font-size:11px;padding:7px}.drive-section{padding-top:0}.drive-label{margin:0 0 10px;font-size:11px}.drive-label strong{font-size:18px}.drive-label small{font-size:10px}.drive-presets{margin-top:6px}.drive-presets button{font-size:10px;padding:4px 7px}.drive-section p{font-size:10px;margin-top:10px;line-height:1.5}.command-readout{grid-column:1;border:0;padding:0;margin:0;font-size:10px;align-self:center}.arm-button{grid-column:2;font-size:11px;padding:8px}.drive-status{grid-column:1/3;margin:0;font-size:10px}.drive-pad-area{left:50%;bottom:24px;width:calc(100% - 36px);justify-content:center;gap:20px}.drive-pad-copy{max-width:165px;white-space:normal}.drive-pad-copy strong{font-size:11px;line-height:1.5}.drive-pad-copy span{font-size:10px;line-height:1.5}.drive-mode .view-tools{top:126px;bottom:auto}.telemetry-note{display:none}.drive-pad{grid-template-columns:40px 40px 40px;grid-template-rows:38px 38px}.drive-mode .canvas-host{bottom:85px}}
+
+/* Drive console — restrained automotive HMI */
+.drive-mode .drive-identity{top:116px;left:34px}
+.drive-mode .drive-identity h2{font-size:18px;font-weight:500;letter-spacing:-.025em;color:#263d4b;margin:11px 0 14px}
+.drive-mode .drive-identity .small-label{font-size:9px;letter-spacing:.15em;color:#7d8d98}
+.drive-mode .drive-panel{top:104px;right:34px;width:252px;padding:0 0 0 22px;background:transparent;border:0;border-left:1px solid #d7e0e5;border-radius:0;box-shadow:none}
+.drive-mode .drive-panel-heading{padding:0 0 13px;border-bottom:1px solid #dbe4e8}
+.drive-mode .drive-panel-heading .icon-button{width:28px;height:28px;margin:0}
+.drive-mode .drive-panel-heading .small-label{font-size:9px;letter-spacing:.14em;color:#7d8e99}
+.drive-mode .drive-panel h2{font-size:13px;font-weight:500;letter-spacing:-.01em;color:#263d4b;margin:8px 0 0}
+.drive-mode .connect-button{border:0;border-bottom:1px solid #cfdbe1;border-radius:0;padding:14px 0 12px;background:transparent;color:#2f6076;justify-content:space-between;text-transform:uppercase;letter-spacing:.11em;font-size:10px}
+.drive-mode .connect-button:hover{background:transparent;color:#163f57}
+.drive-mode .drive-section{padding:18px 0 16px;border-bottom:1px solid #e1e8ec}
+.drive-mode .drive-label{margin:0 0 12px;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#82919a}
+.drive-mode .drive-label strong{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:22px;font-weight:500;letter-spacing:-.04em;color:#263f4e}
+.drive-mode .drive-label small{font-family:inherit;font-size:10px;color:#8798a2}
+.drive-mode .drive-presets{margin-top:11px}
+.drive-mode .drive-presets button{border-bottom:1px solid transparent;border-radius:0;background:transparent;padding:5px 0;color:#8b99a2;font-size:10px}
+.drive-mode .drive-presets button.chosen{background:transparent;color:#275b72;border-bottom-color:#275b72}
+.drive-mode .drive-section p{font-size:11px;line-height:1.55;color:#8a99a2;margin:11px 0 0}
+.drive-mode .command-readout{border-top:0;border-bottom:1px solid #dbe4e8;padding:17px 0;margin:0;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:#82919a}
+.drive-mode .command-readout strong{font-size:11px;font-weight:600;letter-spacing:.02em;color:#31566b}
+.drive-mode .arm-button{margin-top:15px;border:1px solid #263f4e;border-radius:2px;background:#263f4e;color:#fff;padding:12px;text-transform:uppercase;letter-spacing:.1em;font-size:10px}
+.drive-mode .arm-button:hover:not(:disabled){background:#1d3441}
+.drive-mode .drive-status{min-height:17px;font-size:10px;line-height:1.5;color:#8a99a2;margin:10px 0 0}
+.drive-mode .drive-pad-area{left:34%;bottom:43px;gap:23px}
+.drive-mode .drive-pad{width:132px;height:80px;grid-template-columns:44px 44px 44px;grid-template-rows:40px 40px;gap:0;border:1px solid #cfdae0;background:rgba(248,250,251,.78)}
+.drive-mode .direction,.drive-mode .stop-button{border:0;border-radius:0;background:transparent;color:#526c7b}
+.drive-mode .forward{border-left:1px solid #d5dfe4;border-right:1px solid #d5dfe4;border-bottom:1px solid #d5dfe4}
+.drive-mode .backward{border-left:1px solid #d5dfe4;border-right:1px solid #d5dfe4}
+.drive-mode .left{border-top:1px solid #d5dfe4;border-right:1px solid #d5dfe4}
+.drive-mode .right{border-top:1px solid #d5dfe4;border-left:1px solid #d5dfe4}
+.drive-mode .stop-button{border-left:1px solid #d5dfe4;border-bottom:1px solid #d5dfe4;color:#a45f55}
+.drive-mode .direction:active:not(:disabled){background:#dbe7ed;color:#1f4a63}
+.drive-mode .drive-pad-copy{gap:6px;white-space:nowrap}
+.drive-mode .drive-pad-copy strong{font-size:10px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:#5a7180}
+.drive-mode .drive-pad-copy span{font-size:10px;color:#93a0a8}
+.drive-mode .telemetry-note{left:34px;bottom:96px;font-size:9px;letter-spacing:.08em;text-transform:uppercase;color:#9aa7ae}
+@media(max-width:699px){
+ .drive-mode .drive-identity{top:126px;left:18px}
+ .drive-mode .drive-identity h2{font-size:16px;margin:7px 0 10px}
+ .drive-mode .drive-panel{top:auto;right:18px;bottom:139px;left:18px;width:auto;padding:13px 0 0;background:rgba(246,249,250,.94);border:0;border-top:1px solid #d7e0e5;display:grid;grid-template-columns:1fr 1fr;gap:10px 15px}
+ .drive-mode .drive-pad-area{left:50%;bottom:24px;width:calc(100% - 36px);gap:20px}
+ .drive-mode .drive-pad{width:120px;height:76px;grid-template-columns:40px 40px 40px;grid-template-rows:38px 38px}
+ .drive-mode .drive-pad-copy{max-width:165px;white-space:normal}
+ .drive-mode .drive-pad-copy strong{font-size:10px;line-height:1.5}
+ .drive-mode .drive-pad-copy span{font-size:9px;line-height:1.5}
+}
