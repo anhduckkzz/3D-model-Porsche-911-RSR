@@ -5,15 +5,20 @@ export type VehicleState={connected:boolean;armed:boolean;fb:number;lr:number;me
 const CONTROL_SERVICE='0000ae3a-0000-1000-8000-00805f9b34fb';
 const DEVICE_PREFIXES=['QY_','CB26'];
 
-type Characteristic={writeValueWithoutResponse:(data:Uint8Array<ArrayBuffer>)=>Promise<void>};
+type CharacteristicProperties={writeWithoutResponse?:boolean;write?:boolean};
+type Characteristic={
+ properties?:CharacteristicProperties;
+ writeValueWithoutResponse?:(data:BufferSource)=>Promise<void>;
+ writeValueWithResponse?:(data:BufferSource)=>Promise<void>;
+ writeValue?:(data:BufferSource)=>Promise<void>;
+};
 type Service={getCharacteristic:(uuid:string)=>Promise<Characteristic>};
 type GattServer={getPrimaryService:(uuid:string)=>Promise<Service>};
 type Gatt={connected:boolean;connect:()=>Promise<GattServer>;disconnect:()=>void};
 type Device=EventTarget&{name?:string;gatt?:Gatt};
-type Bluetooth={
- getDevices?:()=>Promise<Device[]>;
- requestDevice:(options:{filters?:Array<{namePrefix:string}>;optionalServices:string[]})=>Promise<Device>;
-};
+type Bluetooth={requestDevice:(options:{filters:Array<{namePrefix:string}>;optionalServices:string[]})=>Promise<Device>};
+
+const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
 export class VehicleLink{
  state:VehicleState={connected:false,armed:false,fb:0,lr:0,message:'Chưa kết nối'};
@@ -21,48 +26,82 @@ export class VehicleLink{
  constructor(private notify:(state:VehicleState)=>void){}
  emit(patch:Partial<VehicleState>){this.state={...this.state,...patch};this.notify({...this.state})}
 
+ private async writeCharacteristic(char:Characteristic,frame:Uint8Array<ArrayBuffer>){
+  const data=frame as BufferSource;
+  // ae3b is a WRITE WITHOUT RESPONSE characteristic on this hub. Prefer the
+  // modern method, but keep Chrome's older writeValue() as a compatibility
+  // fallback because Web Bluetooth implementations differ across releases.
+  if(char.writeValueWithoutResponse)return char.writeValueWithoutResponse(data);
+  if(char.writeValue)return char.writeValue(data);
+  if(char.writeValueWithResponse)return char.writeValueWithResponse(data);
+  throw new Error('Characteristic ae3b không hỗ trợ ghi dữ liệu trong trình duyệt này.');
+ }
+
+ private async withTimeout<T>(promise:Promise<T>,ms:number,label:string){
+  let timer:ReturnType<typeof setTimeout>|undefined;
+  try{return await Promise.race([promise,new Promise<T>((_,reject)=>{timer=setTimeout(()=>reject(new Error(label)),ms)})])}
+  finally{if(timer)clearTimeout(timer)}
+ }
+
  async connect(){
-  this.closed=false;this.emit({message:'Đang kết nối…'});
+  this.closed=false;this.emit({message:'Đang chờ chọn xe…'});
   try{
    const bluetooth=(navigator as Navigator&{bluetooth?:Bluetooth}).bluetooth;
-   if(!bluetooth)throw new Error('Trình duyệt chưa hỗ trợ Web Bluetooth. Hãy dùng Chrome hoặc Edge.');
+   if(!bluetooth)throw new Error('Web Bluetooth không khả dụng. Hãy mở bằng Chrome hoặc Edge trên máy có Bluetooth.');
 
-   let device:Device|undefined;
-   if(bluetooth.getDevices){
-    const approved=await bluetooth.getDevices();
-    device=approved.find(d=>DEVICE_PREFIXES.some(prefix=>(d.name??'').startsWith(prefix)));
-    if(!device&&approved.length===1)device=approved[0];
-   }
-   if(!device){
-    device=await bluetooth.requestDevice({
-     filters:DEVICE_PREFIXES.map(namePrefix=>({namePrefix})),
-     optionalServices:[CONTROL_SERVICE]
-    });
-   }
+   // Always ask the browser for the car on Connect. The user explicitly accepts
+   // the native permission chooser, and this avoids Chrome reusing a stale
+   // permission/device object from an earlier failed attempt.
+   const device=await bluetooth.requestDevice({
+    filters:DEVICE_PREFIXES.map(namePrefix=>({namePrefix})),
+    optionalServices:[CONTROL_SERVICE]
+   });
    if(this.closed){device.gatt?.disconnect();return}
-   if(!device.gatt)throw new Error('Thiết bị không hỗ trợ GATT.');
+   if(!device.gatt)throw new Error('Thiết bị đã chọn không có BLE GATT.');
 
    this.device=device;
+   this.emit({message:'Đang mở kết nối Bluetooth…'});
    device.addEventListener('gattserverdisconnected',()=>{
     this.pending=null;this.char=undefined;
     this.emit({connected:false,armed:false,fb:0,lr:0,message:'Đã mất kết nối'});
    },{once:true});
 
-   const server=await device.gatt.connect();
+   let server:GattServer|undefined,lastError:unknown;
+   for(let attempt=0;attempt<3&&!server;attempt++){
+    try{server=await this.withTimeout(device.gatt.connect(),8000,'Bluetooth GATT connect timeout.');}
+    catch(error){lastError=error;if(attempt<2){try{device.gatt.disconnect()}catch{}await sleep(250)}}
+   }
+   if(!server)throw lastError instanceof Error?lastError:new Error('Không mở được BLE GATT.');
    if(this.closed){device.gatt.disconnect();return}
-   const service=await server.getPrimaryService(CONTROL_SERVICE);
-   this.char=await service.getCharacteristic(CONTROL_CHARACTERISTIC);
-   await this.char.writeValueWithoutResponse(motorFrame());
+
+   this.emit({message:'Đang mở service điều khiển…'});
+   let service:Service|undefined;
+   for(let attempt=0;attempt<3&&!service;attempt++){
+    try{service=await this.withTimeout(server.getPrimaryService(CONTROL_SERVICE),3000,'Không tìm thấy service ae3a.');}
+    catch(error){lastError=error;if(attempt<2)await sleep(200)}
+   }
+   if(!service)throw lastError instanceof Error?lastError:new Error('Không tìm thấy service ae3a.');
+
+   this.emit({message:'Đang mở characteristic điều khiển…'});
+   const char=await this.withTimeout(service.getCharacteristic(CONTROL_CHARACTERISTIC),3000,'Không tìm thấy characteristic ae3b.');
+   this.char=char;
+
+   // The known-good Python script writes this exact neutral frame immediately
+   // after connecting. Do the same before marking the UI connected.
+   this.emit({message:'Đang kiểm tra lệnh điều khiển…'});
+   await this.withTimeout(this.writeCharacteristic(char,motorFrame()),2500,'Không ghi được lệnh thử tới xe.');
    this.lastAck=performance.now();
    this.emit({connected:true,armed:false,fb:0,lr:0,message:'Đã kết nối'});
   }catch(e){
-   this.pending=null;this.char=undefined;this.device?.gatt?.disconnect();
-   this.emit({connected:false,armed:false,fb:0,lr:0,message:e instanceof Error?e.message:'Kết nối thất bại.'});
+   this.pending=null;this.char=undefined;
+   try{this.device?.gatt?.disconnect()}catch{}
+   const message=e instanceof Error?(e.name&&e.name!=='Error'?`${e.name}: ${e.message}`:e.message):'Kết nối thất bại.';
+   console.error('[Porsche Web Bluetooth]',e);
+   this.emit({connected:false,armed:false,fb:0,lr:0,message});
    throw e;
   }
  }
 
- // Compatibility alias for the current one-button control UI.
  connectLocal(){return this.connect()}
 
  arm(){
@@ -71,7 +110,7 @@ export class VehicleLink{
  }
  drive(command:{fb:number;turn:number;pulse_ms:number;turn_id:number}){
   if(!this.state.connected||!this.state.armed)return;
-  if(performance.now()-this.lastAck>500){this.stop();this.emit({message:'Kết nối phản hồi chậm.'});return}
+  if(performance.now()-this.lastAck>700){this.stop();this.emit({message:'Kết nối phản hồi chậm.'});return}
   this.emit({fb:command.fb,lr:command.turn*100});this.enqueue(motorFrame(command.fb,command.turn*100));
  }
  private enqueue(frame:Uint8Array<ArrayBuffer>){this.pending=frame;void this.flush()}
@@ -80,16 +119,14 @@ export class VehicleLink{
   try{
    while(this.pending&&this.char&&this.device?.gatt?.connected){
     const frame=this.pending;this.pending=null;
-    await new Promise<void>((resolve,reject)=>{
-     const timer=setTimeout(()=>reject(new Error('GATT timeout')),500);
-     this.char!.writeValueWithoutResponse(frame).then(()=>{clearTimeout(timer);resolve()},error=>{clearTimeout(timer);reject(error)});
-    });
+    await this.withTimeout(this.writeCharacteristic(this.char,frame),700,'GATT write timeout.');
     this.lastAck=performance.now();
    }
-  }catch{
+  }catch(error){
    this.pending=null;this.char=undefined;
-   this.emit({armed:false,connected:false,fb:0,lr:0,message:'Không gửi được lệnh tới hub.'});
-   this.device?.gatt?.disconnect();
+   console.error('[Porsche BLE write]',error);
+   this.emit({armed:false,connected:false,fb:0,lr:0,message:error instanceof Error?error.message:'Không gửi được lệnh tới hub.'});
+   try{this.device?.gatt?.disconnect()}catch{}
   }finally{this.writing=false}
  }
  stop(){
@@ -99,8 +136,9 @@ export class VehicleLink{
  }
  async close(){
   this.closed=true;this.stop();
-  const start=performance.now();while(this.writing&&performance.now()-start<500)await new Promise(r=>setTimeout(r,10));
-  this.device?.gatt?.disconnect();this.char=undefined;this.device=undefined;
+  const start=performance.now();while(this.writing&&performance.now()-start<700)await sleep(10);
+  try{this.device?.gatt?.disconnect()}catch{}
+  this.char=undefined;this.device=undefined;
   this.emit({connected:false,armed:false,fb:0,lr:0,message:'Đã ngắt kết nối'});
  }
 }
