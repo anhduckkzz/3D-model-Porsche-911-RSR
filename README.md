@@ -29,7 +29,7 @@ npm test
 npm run build
 ```
 
-`typecheck` checks the application and UI source. `npm test` validates model integrity, leaf and assembly coverage, LOD buffers, deterministic packing, group-cell containment, full-flat non-overlap, average movement speed across stages, command encoding, input ownership and stop priority. Python controller tests run separately with `python -m unittest discover -s controller -v`. It also reports a CPU-only instance-update benchmark. `npm run test:starter` is the inherited framework contract suite.
+`typecheck` checks the application and UI source. `npm test` validates model integrity, leaf and assembly coverage, LOD buffers, deterministic packing, legacy explode-all endpoints, linear movement speed across stages, command encoding, input ownership and stop priority. Python controller tests run separately with `python -m unittest discover -s controller -v`. It also reports a CPU-only instance-update benchmark. `npm run test:starter` is the inherited framework contract suite.
 
 ## Deploy to Vercel
 
@@ -64,7 +64,7 @@ npm run start:cloudflare
 - Geometry download: approximately 4.4 MB gzip. High detail: 2,521,990 scene triangles; low detail: 1,358,270.
 - Low-detail indices are generated offline with meshoptimizer. Mobile starts with these; sustained slow frames lower detail and then pixel ratio.
 - The render loop sleeps after camera motion and transitions settle, and pauses when the document is hidden.
-- Group cells are packed from real bounds and each group keeps its own inventory area. A single linear progress clock drives geometry and camera; the phase boundary is weighted by average path length. Packing is cached across slider changes. Selection uses instance IDs. The parts preview uses one shared secondary canvas instead of a renderer for every thumbnail.
+- Explore keeps the original Human Atlas-style motion: each assembly first moves away as a rigid group, then every element transitions into the same deterministic flat inventory layout. A single linear progress clock removes the slow-then-fast easing while preserving that visual path. Packing is cached across slider changes. Selection uses instance IDs. The parts preview uses one shared secondary canvas instead of a renderer for every thumbnail.
 
 GPU frame rate has not been measured on physical target devices. These measures reduce rendering cost; they are not a universal 60 FPS guarantee.
 
