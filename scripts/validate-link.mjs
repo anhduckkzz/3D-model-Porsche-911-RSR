@@ -20,10 +20,9 @@ device.gatt={
  },
  disconnect(){if(!this.connected)return;this.connected=false;device.dispatchEvent(new Event('gattserverdisconnected'))}
 };
-let approved=false,chooserCalls=0;
+let chooserCalls=0;
 const bluetooth={
- async getDevices(){return approved?[device]:[]},
- async requestDevice(options){chooserCalls++;assert(options.filters.some(f=>f.namePrefix==='QY_'));assert(options.optionalServices.includes(SERVICE));approved=true;return device}
+ async requestDevice(options){chooserCalls++;assert(options.filters.some(f=>f.namePrefix==='QY_'));assert(options.optionalServices.includes(SERVICE));return device}
 };
 Object.defineProperty(globalThis,'navigator',{value:{bluetooth},configurable:true});
 
@@ -50,7 +49,7 @@ assert.equal(link.state.connected,false);
 
 const second=new VehicleLink(()=>{});
 await second.connect();
-assert.equal(chooserCalls,1,'Previously approved device should reconnect without another chooser');
+assert.equal(chooserCalls,2,'Each explicit Connect should use the native chooser for a fresh device object');
 await second.close();
 
-console.log({passed:true,directWebBluetooth:true,permissionReuse:true,stopFrame:true});
+console.log({passed:true,directWebBluetooth:true,nativeChooser:true,stopFrame:true});
