@@ -6,7 +6,7 @@ const source=fs.readFileSync('app/vehicle-link.ts','utf8').replace("'./vehicle-p
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const {VehicleLink}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
 
-const SERVICE='0000ae3a-0000-1000-8000-00805f9b34fb';
+const SERVICE='49535343-fe7d-4ae5-8fa9-9fafd205e455';
 const CHARACTERISTIC='0000ae3b-0000-1000-8000-00805f9b34fb';
 const writes=[];
 const characteristic={async writeValueWithoutResponse(data){writes.push([...data])}};
@@ -52,4 +52,4 @@ await second.connect();
 assert.equal(chooserCalls,2,'Each explicit Connect should use the native chooser for a fresh device object');
 await second.close();
 
-console.log({passed:true,directWebBluetooth:true,nativeChooser:true,stopFrame:true});
+console.log({passed:true,directWebBluetooth:true,nativeChooser:true,stopFrame:true,serviceUuid:SERVICE});
