@@ -3,7 +3,7 @@ import {forwardRef,useEffect,useImperativeHandle,useRef,useState,type RefObject}
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
-import {createFlatLayout,createExplosionPlan,sampleExplosion,advanceExplosion,insertionOffset,type PiecePose,FLAT_ROTATION} from './explosion-layout';
+import {createFlatLayout,groupOffsets,sampleLegacyExplosion,advanceExplosion,insertionOffset,type PiecePose,FLAT_ROTATION} from './explosion-layout';
 import {assemblyFrame} from './assembly-guide';
 import type {ModelData,Part,ViewerMode} from './model-types';
 
@@ -29,7 +29,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   let model:ModelData,geometries:T.BufferGeometry[]=[],lowIndices:T.BufferAttribute[]=[],highIndices:T.BufferAttribute[]=[],batches:Batch[]=[],current:PiecePose[]=[],base:PiecePose[]=[],destinations:PiecePose[]=[],visible:Part[]=[],layout:ReturnType<typeof createFlatLayout>|undefined;
   const slots=new Map<number,{batch:Batch;index:number}>(),mats:T.Material[]=[],cleanups:(()=>void)[]=[];let environment:T.WebGLRenderTarget|undefined;
   let motions:Motion[]=[],motionStart=0,motionDuration=900,lastKey='',lastSelection:number|null=null,lastMode:ViewerMode='explore',lastStep=-1,lastReplay=0,lastBench=true,layoutKey='',flat=false,span=12,aspect=1,lowDetail=window.innerWidth<768,pixelRatio=Math.min(devicePixelRatio,1.7),dirty=true;
-  let explosion:ReturnType<typeof createExplosionPlan>|undefined,amount=0,explosionTarget=0,explosionKey='',buildFrame:ReturnType<typeof assemblyFrame>|undefined;
+  let amount=0,explosionTarget=0,buildFrame:ReturnType<typeof assemblyFrame>|undefined;
   let cameraMotion:{start:number;fromTarget:T.Vector3;toTarget:T.Vector3;fromDir:T.Vector3;toDir:T.Vector3;fromSpan:number;toSpan:number}|null=null;
   const marker=new T.Box3Helper(new T.Box3(),0x47749b);marker.visible=false;scene.add(marker);
   const matrix=new T.Matrix4(),position=new T.Vector3(),quaternion=new T.Quaternion(),scale=new T.Vector3();
@@ -91,9 +91,10 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    destinations=base.map(clonePose);
    if(s.mode==='explore'){
     const nextKey=s.group+':'+availableAspect().toFixed(3);
-    if(!explosion||nextKey!==explosionKey){explosion=createExplosionPlan(visible,model,availableAspect());explosionKey=nextKey;latest.current.onExplosionSplit(explosion.split)}
+    const offsets=groupOffsets(model);
+    if(!layout||nextKey!==layoutKey){layout=createFlatLayout(visible,model,availableAspect());layoutKey=nextKey;latest.current.onExplosionSplit(.4)}
     explosionTarget=extent;if(matchMedia('(prefers-reduced-motion: reduce)').matches)amount=extent;
-    for(const p of visible)sampleExplosion(explosion,p.id,amount,destinations[p.id]);
+    for(const p of visible){const goal=layout.poses.get(p.id);if(goal)sampleLegacyExplosion(base[p.id],goal,offsets.get(p.group)??new T.Vector3(),amount,destinations[p.id])}
    }else {amount=0;explosionTarget=0}
    if(buildFrame&&s.bench){const center=boundsFor(model.assembly.nodes[buildFrame.node.id].parts.map(id=>model.parts[id]),base).getCenter(new T.Vector3());for(const p of visible){destinations[p.id].position.sub(center);destinations[p.id].center.sub(center)}}
    slots.clear();const visibleIds=new Set(visible.map(p=>p.id));for(const b of batches){b.ids=[];for(const p of b.parts){if(!visibleIds.has(p.id))continue;slots.set(p.id,{batch:b,index:b.ids.length});b.ids.push(p.id)}b.mesh.count=b.ids.length}
@@ -102,23 +103,26 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
     if(fresh){const offset=buildFrame?.event.kind==='attach'?new T.Vector3(0,2.5,1.5):insertionOffset(p,model);from.position.copy(to.position).add(offset);from.quaternion.copy(to.quaternion);if(buildFrame?.event.kind==='attach'?newIndex===0:newIndex<18){const localCenter=new T.Vector3().fromArray(model.geometries[p.geo].bounds[0]).add(new T.Vector3().fromArray(model.geometries[p.geo].bounds[1])).multiplyScalar(.5);const end=localCenter.multiply(to.scale).applyQuaternion(to.quaternion).add(to.position);const arrow=new T.ArrowHelper(offset.clone().normalize().negate(),end.clone().add(offset),offset.length()*.8,0xb95426,.16,.075);arrows.add(arrow)}newIndex++}
     else if(s.mode!=='build'||!previousVisible.has(p.id)||enteringBuild||s.bench)Object.assign(from,clonePose(to));
     write(p,from);
-    if(from.position.distanceToSquared(to.position)>1e-8||Math.abs(from.quaternion.dot(to.quaternion))<.999999)motions.push({part:p,from,to,delay:0});else write(p,to);
+    const needsMotion=from.position.distanceToSquared(to.position)>1e-8||Math.abs(from.quaternion.dot(to.quaternion))<.999999;
+    if(s.mode==='explore'){if(Math.abs(amount-explosionTarget)<=1e-7)write(p,to)}
+    else if(needsMotion)motions.push({part:p,from,to,delay:0});else write(p,to);
    }
    motionStart=performance.now();motionDuration=s.mode==='build'?1100:700;if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(const p of visible)write(p,destinations[p.id]);motions=[];arrows.visible=false}else arrows.visible=s.mode==='build'&&motions.length>0;
    for(const b of batches)b.mesh.computeBoundingSphere();stylePieces();
-   flat=s.mode==='explore'&&amount>.001;if(controls){controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE}
-   if(s.mode!=='explore'&&(s.followStep||modeChanged||contextChanged))autoFit();else if(s.mode==='explore'&&amount===explosionTarget)fitBounds(boundsFor(visible),amount>0?new T.Vector3(0,0,1):ISO,true);rebuildPreview();request();
+   flat=s.mode==='explore'&&amount>.92;if(controls){controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE}
+   if(s.mode!=='explore'&&(s.followStep||modeChanged||contextChanged))autoFit();else if(s.mode==='explore'&&amount===explosionTarget)fitBounds(boundsFor(visible),amount>.92?new T.Vector3(0,0,1):ISO,true);rebuildPreview();request();
   }
   function frame(now:number){
    raf=0;if(disposed||!renderer||!controls||document.hidden)return;
    const delta=lastFrame?now-lastFrame:0;lastFrame=now;
-   const exploring=latest.current.mode==='explore'&&!!explosion&&Math.abs(amount-explosionTarget)>1e-7;
+   const exploring=latest.current.mode==='explore'&&Math.abs(amount-explosionTarget)>1e-7;
    if(exploring){
     amount=advanceExplosion(amount,explosionTarget,delta?delta/1000:1/60);
-    for(const p of visible){sampleExplosion(explosion!,p.id,amount,destinations[p.id]);write(p,destinations[p.id])}
+    const offsets=groupOffsets(model);
+    for(const p of visible){const goal=layout?.poses.get(p.id);if(goal){sampleLegacyExplosion(base[p.id],goal,offsets.get(p.group)??new T.Vector3(),amount,destinations[p.id]);write(p,destinations[p.id])}}
     for(const b of batches)b.mesh.computeBoundingSphere();
-    const direction=ISO.clone().lerp(new T.Vector3(0,0,1),Math.min(1,amount/Math.max(explosion!.split*.6,.01))).normalize();
-    fitBounds(boundsFor(visible),direction,true);flat=amount>.001;controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE;stylePieces();dirty=true;
+    const direction=ISO.clone().lerp(new T.Vector3(0,0,1),Math.max(0,Math.min(1,(amount-.4)/.6))).normalize();
+    fitBounds(boundsFor(visible),direction,true);flat=amount>.92;controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE;stylePieces();dirty=true;
    }
    if(motions.length){const elapsed=Math.min(1,(now-motionStart)/motionDuration);const changed=new Set<Batch>();for(const m of motions){const t=smooth(Math.max(0,Math.min(1,(elapsed-m.delay)/(1-m.delay))));position.copy(m.from.position).lerp(m.to.position,t);quaternion.copy(m.from.quaternion).slerp(m.to.quaternion,t);scale.copy(m.from.scale).lerp(m.to.scale,t);write(m.part,{position,quaternion,scale,center:position});const slot=slots.get(m.part.id);if(slot)changed.add(slot.batch)}for(const b of changed)b.mesh.computeBoundingSphere();if(elapsed>=1){motions=[];arrows.visible=false}stylePieces();dirty=true}
    if(cameraMotion){const a=smooth(Math.min(1,(now-cameraMotion.start)/700));span=T.MathUtils.lerp(cameraMotion.fromSpan,cameraMotion.toSpan,a);configureCamera();controls.target.copy(cameraMotion.fromTarget).lerp(cameraMotion.toTarget,a);const direction=cameraMotion.fromDir.clone().lerp(cameraMotion.toDir,a).normalize();camera.position.copy(controls.target).addScaledVector(direction,250);camera.lookAt(controls.target);if(a>=1)cameraMotion=null;dirty=true}
