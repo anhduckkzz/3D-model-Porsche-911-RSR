@@ -31,8 +31,8 @@ export default function DriveConsole(){
  return <>
   <div className="drive-identity"><span className="small-label">VEHICLE CONTROL</span><h2>Porsche 911 RSR</h2></div>
   <aside className="drive-panel">
-   <button className="connect-button" disabled={busy} onClick={()=>void connect()} aria-label={state.connected?'Đã kết nối':'Kết nối xe'} title={!state.connected&&connectError?connectError:undefined} style={state.connected?{color:'#1f9d55',borderColor:'#bfe7cf',background:'#f4fbf7'}:undefined}>{state.connected?<Check size={19} strokeWidth={2.4}/>:<><Bluetooth size={16}/><span>{busy?state.message:'Connect'}</span></>}</button>
-   {!state.connected&&connectError&&<p className="drive-connect-error" role="status">{connectError}</p>}
+   <button className="connect-button" disabled={busy} onClick={()=>void connect()} aria-label={state.connected?'Đã kết nối':'Kết nối xe'} title={!state.connected&&connectError?connectError:undefined} style={state.connected?{color:'#1f9d55',borderColor:'#bfe7cf',background:'#f4fbf7'}:undefined}>{state.connected?<Check size={19} strokeWidth={2.4}/>:<><Bluetooth size={16}/><span>{busy?'Connecting…':'Connect'}</span></>}</button>
+   {!state.connected&&connectError&&<p role="status" style={{margin:'8px 2px 0',fontSize:11,lineHeight:1.45,color:'#a65346',maxWidth:260}}>{connectError}</p>}
    <div className="drive-section"><div className="drive-label"><span>Mức truyền động</span><strong>{speed}<small>%</small></strong></div><Slider min={25} max={100} step={1} value={[speed]} aria-label="Mức truyền động" onValueChange={v=>{setSpeed(v[0]);intent.current.clear()}}/><div className="drive-presets">{[30,50,100].map(v=><button key={v} className={speed===v?'chosen':''} onClick={()=>{setSpeed(v);intent.current.clear()}}>{v}%</button>)}</div></div>
    <div className="command-readout"><span>Lệnh đang gửi</span><strong>{state.fb>0?'Tiến':state.fb<0?'Lùi':'Dừng'}{state.lr<0?' · Trái':state.lr>0?' · Phải':''}</strong></div>
   </aside>
