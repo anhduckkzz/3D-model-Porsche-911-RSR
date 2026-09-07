@@ -2,47 +2,34 @@
 setlocal
 cd /d "%~dp0"
 
-echo Starting Porsche 911 RSR local controller...
-
-python -c "import bleak, websockets" >nul 2>nul
-if errorlevel 1 (
-  echo Installing local Bluetooth requirements...
-  python -m pip install -r controller\requirements.txt || goto :error
-)
+echo Starting Porsche 911 RSR...
 
 if not exist node_modules\ (
   echo Installing web dependencies...
   call npm install || goto :error
 )
 
-rem This machine is dedicated to the project. Always clear stale listeners first.
-rem Otherwise Next.js may silently move to 3001 while the browser keeps opening
-rem an old app on 3000, and an old bridge may still own 8765.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$ports=3000,8765; Get-NetTCPConnection -State Listen -ErrorAction SilentlyContinue ^| Where-Object { $ports -contains $_.LocalPort } ^| Select-Object -ExpandProperty OwningProcess -Unique ^| ForEach-Object { Stop-Process -Id $_ -Force -ErrorAction SilentlyContinue }" >nul 2>nul
+rem The car now connects directly from Chrome/Edge through Web Bluetooth.
+rem No Python BLE bridge is required.
+for /f "tokens=5" %%p in ('netstat -ano ^| findstr /R /C:":3000 .*LISTENING"') do taskkill /PID %%p /F >nul 2>nul
 timeout /t 1 /nobreak >nul
 
-rem Keep logs so a failed one-button connection can be diagnosed without any config UI.
-> controller\bridge.log echo [%date% %time%] starting bridge
-> controller\web.log echo [%date% %time%] starting web
-start "Porsche BLE Controller" /min cmd /c "python -u controller\bridge.py >> controller\bridge.log 2>&1"
-start "Porsche Web" /min cmd /c "npm run dev >> controller\web.log 2>&1"
+start "Porsche Web" /min cmd /c "npm run dev"
 
-rem Wait until both local services are actually listening before opening the page.
-powershell -NoProfile -ExecutionPolicy Bypass -Command "$deadline=(Get-Date).AddSeconds(25); do { $web=Get-NetTCPConnection -LocalPort 3000 -State Listen -ErrorAction SilentlyContinue; $ble=Get-NetTCPConnection -LocalPort 8765 -State Listen -ErrorAction SilentlyContinue; if($web -and $ble){ exit 0 }; Start-Sleep -Milliseconds 250 } while((Get-Date) -lt $deadline); exit 1"
-if errorlevel 1 goto :startup_error
+for /l %%i in (1,1,30) do (
+  powershell -NoProfile -Command "try { $r=Invoke-WebRequest -UseBasicParsing http://127.0.0.1:3000 -TimeoutSec 1; exit 0 } catch { exit 1 }" >nul 2>nul && goto :ready
+  timeout /t 1 /nobreak >nul
+)
 
+echo Web app did not become ready on port 3000.
+goto :error
+
+:ready
 start "" http://localhost:3000
 exit /b 0
 
-:startup_error
-echo.
-echo Local services did not start correctly.
-echo Open controller\bridge.log and controller\web.log for the exact error.
-pause
-exit /b 1
-
 :error
 echo.
-echo Could not start the local Porsche controller.
+echo Could not start the Porsche web app.
 pause
 exit /b 1
