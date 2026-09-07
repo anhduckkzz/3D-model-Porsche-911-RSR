@@ -56,35 +56,6 @@ export function insertionOffset(part:Part,data:ModelData){
  return direction.multiplyScalar(Math.max(.8,Math.min(2.8,size.length()+.65)));
 }
 
-export type ExplosionPlan={base:Map<number,PiecePose>;grouped:Map<number,PiecePose>;flat:Map<number,PiecePose>;split:number;cells:Map<string,{x:number;y:number;width:number;height:number}>};
-/** Groups own disjoint cells; their pieces remain inside those cells when flattened. */
-export function createExplosionPlan(parts:Part[],data:ModelData,aspect:number):ExplosionPlan{
- const base=new Map<number,PiecePose>(),grouped=new Map<number,PiecePose>(),flat=new Map<number,PiecePose>();
- const groups=[...new Set(parts.map(p=>p.group))].map(id=>{
-  const list=parts.filter(p=>p.group===id),bounds=new T.Box3();let radius=0;
-  for(const p of list){const position=new T.Vector3(),quaternion=new T.Quaternion(),scale=new T.Vector3(),matrix=new T.Matrix4().fromArray(p.matrix);matrix.decompose(position,quaternion,scale);const info=data.geometries[p.geo];const box=new T.Box3(new T.Vector3().fromArray(info.bounds[0]),new T.Vector3().fromArray(info.bounds[1]));const center=box.getCenter(new T.Vector3()).applyMatrix4(matrix);base.set(p.id,{position,quaternion,scale,center});bounds.union(box.clone().applyMatrix4(matrix));radius=Math.max(radius,box.getSize(new T.Vector3()).multiply(scale).length())}
-  const layout=createFlatLayout(list,data,aspect),size=bounds.getSize(new T.Vector3());return {id,list,bounds,layout,width:Math.max(size.x,layout.width)+radius+.7,height:Math.max(size.y,layout.height)+radius+.7};
- });
- const target=Math.max(1,...groups.map(g=>g.width),Math.sqrt(groups.reduce((a,g)=>a+g.width*g.height,0)*Math.max(.4,Math.min(3,aspect))));
- groups.sort((a,b)=>b.height-a.height||a.id.localeCompare(b.id));let x=0,y=0,row=0,width=0;
- const cells=new Map<string,{x:number;y:number;width:number;height:number}>();
- for(const g of groups){if(x&&x+g.width>target){x=0;y+=row;row=0}cells.set(g.id,{x:x+g.width/2,y:-(y+g.height/2),width:g.width,height:g.height});x+=g.width;row=Math.max(row,g.height);width=Math.max(width,x)}
- const height=y+row;for(const cell of cells.values()){cell.x-=width/2;cell.y+=height/2}
- let first=0,second=0;
- for(const g of groups){const c=cells.get(g.id)!,offset=new T.Vector3(c.x,c.y,0).sub(g.bounds.getCenter(new T.Vector3()));
-  for(const p of g.list){const b=base.get(p.id)!,q={position:b.position.clone().add(offset),quaternion:b.quaternion.clone(),scale:b.scale.clone(),center:b.center.clone().add(offset)};grouped.set(p.id,q);const f=g.layout.poses.get(p.id)!;f.position.add(new T.Vector3(c.x,c.y,0));f.center.add(new T.Vector3(c.x,c.y,0));flat.set(p.id,f);first+=b.center.distanceTo(q.center);second+=q.center.distanceTo(f.center)}
- }
- return {base,grouped,flat,cells,split:first+second?first/(first+second):.5};
-}
-/** A single linear progress value drives positions, orientations and camera together. */
-export function sampleExplosion(plan:ExplosionPlan,id:number,amount:number,out:PiecePose){
- const split=plan.split,a=amount<=split?plan.base.get(id)!:plan.grouped.get(id)!,b=amount<=split?plan.grouped.get(id)!:plan.flat.get(id)!;
- const t=Math.max(0,Math.min(1,amount<=split?amount/Math.max(split,1e-9):(amount-split)/Math.max(1-split,1e-9)));
- out.quaternion.copy(a.quaternion).slerp(b.quaternion,t);out.scale.copy(a.scale).lerp(b.scale,t);out.center.copy(a.center).lerp(b.center,t);
- // Rotate around the actual piece center rather than a remote LDraw origin.
- const local=a.center.clone().sub(a.position).applyQuaternion(a.quaternion.clone().invert()).divide(a.scale);
- out.position.copy(local).multiply(out.scale).applyQuaternion(out.quaternion).negate().add(out.center);return out;
-}
 /** Legacy Human Atlas-style explode: rigid group offsets, then one flat inventory plane. */
 export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vector3,amount:number,out:PiecePose,split=.4){
  const a=Math.max(0,Math.min(1,amount)),boundary=Math.max(.25,Math.min(.75,split));
