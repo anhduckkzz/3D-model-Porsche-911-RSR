@@ -1,11 +1,12 @@
-"""Local authenticated BLE bridge. Running the server never starts the motors."""
+"""Zero-config local BLE bridge for the Porsche 911 RSR controller."""
 import argparse
 import asyncio
 import hmac
 import json
-import secrets
 import time
 from protocol import CHAR_UUID, build_cmd, clamp_speed
+
+LOCAL_TOKEN = '42096-local'
 
 class Controller:
     def __init__(self, client, clock=time.monotonic):
@@ -44,7 +45,7 @@ class Controller:
         now = self.clock()
         if now > self.deadline:
             await self.stop()
-            raise ValueError('Hết thời gian giữ kết nối. Bật điều khiển lại.')
+            raise ValueError('Hết thời gian giữ kết nối.')
         self.deadline = now + .35
         self.fb = clamp_speed(fb)
         if not turn:
@@ -75,7 +76,7 @@ class Controller:
 async def main(args):
     from bleak import BleakClient, BleakScanner
     from websockets.asyncio.server import serve
-    token = secrets.token_urlsafe(24)
+    token = LOCAL_TOKEN
     owner = asyncio.Lock()
     async def device():
         if args.address:
@@ -83,17 +84,10 @@ async def main(args):
         devices = await BleakScanner.discover(timeout=5, return_adv=True)
         matches = [d for d, a in devices.values() if (a.local_name or d.name or '').startswith(('QY_', 'CB26'))]
         if not matches:
-            raise ValueError('Không tìm thấy hub QY / CB26. Bật hub và tắt app điều khiển khác.')
+            raise ValueError('Không tìm thấy xe. Hãy bật hub Bluetooth.')
         if len(matches) > 1:
-            raise ValueError('Có nhiều hub. Chạy lại với --address và chọn đúng hub: ' + ', '.join(d.address for d in matches))
+            raise ValueError('Tìm thấy nhiều hub QY / CB26.')
         return matches[0]
-    if args.discover:
-        async with BleakClient(await device()) as client:
-            char = client.services.get_characteristic(CHAR_UUID)
-            if not char:
-                raise ValueError('Hub không có characteristic điều khiển yêu cầu.')
-            print('Service UUID cho Web Bluetooth:', char.service_uuid)
-        return
     async def handle(ws):
         controller = None
         client = None
@@ -106,7 +100,7 @@ async def main(args):
                 await ws.close(1008, 'Token không hợp lệ')
                 return
             if owner.locked():
-                await ws.close(1008, 'Một trình điều khiển khác đang kết nối')
+                await ws.close(1008, 'Xe đang được điều khiển bởi phiên khác')
                 return
             await owner.acquire()
             acquired = True
@@ -114,7 +108,7 @@ async def main(args):
             client = BleakClient(await device())
             await client.connect()
             if not client.services.get_characteristic(CHAR_UUID):
-                raise ValueError('Sai hub: không tìm thấy characteristic điều khiển.')
+                raise ValueError('Không tìm thấy characteristic điều khiển.')
             controller = Controller(client)
             await controller.stop()
             await ws.send(json.dumps(controller.state()))
@@ -144,7 +138,7 @@ async def main(args):
                 elif message.get('type') == 'stop':
                     await controller.stop()
                 else:
-                    raise ValueError('Loại lệnh không hợp lệ.')
+                    raise ValueError('Loại lệnh điều khiển không hợp lệ.')
                 await ws.send(json.dumps(controller.state()))
         except Exception as error:
             if controller:
@@ -172,19 +166,15 @@ async def main(args):
             finally:
                 if acquired:
                     owner.release()
-    print('Bridge: ws://127.0.0.1:' + str(args.port))
-    print('Token:', token)
-    print('Allowed origin:', args.origin)
-    print('Chỉ kết nối hub khi bạn nhấn Kết nối trên web. Ctrl+C để thoát.')
+    print('Porsche local controller ready on ws://127.0.0.1:' + str(args.port))
     async with serve(handle, '127.0.0.1', args.port, origins=[args.origin], max_size=2048, max_queue=1, ping_interval=10, ping_timeout=5):
         await asyncio.Future()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--origin', default='http://localhost:3000', help='Exact origin of the web UI, e.g. https://your-site.vercel.app')
-    parser.add_argument('--address', help='Optional BLE address; otherwise discover a QY / CB26 hub')
+    parser.add_argument('--origin', default='http://localhost:3000')
+    parser.add_argument('--address')
     parser.add_argument('--port', type=int, default=8765)
-    parser.add_argument('--discover', action='store_true', help='Print the actual GATT service UUID without sending motor commands')
     try:
         asyncio.run(main(parser.parse_args()))
     except KeyboardInterrupt:
