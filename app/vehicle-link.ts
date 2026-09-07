@@ -2,7 +2,7 @@ import {CONTROL_CHARACTERISTIC,motorFrame} from './vehicle-protocol';
 
 export type VehicleState={connected:boolean;armed:boolean;fb:number;lr:number;message:string};
 
-const CONTROL_SERVICE='0000ae3a-0000-1000-8000-00805f9b34fb';
+const CONTROL_SERVICE='49535343-fe7d-4ae5-8fa9-9fafd205e455';
 const DEVICE_PREFIXES=['QY_','CB26'];
 
 type CharacteristicProperties={writeWithoutResponse?:boolean;write?:boolean};
@@ -49,9 +49,6 @@ export class VehicleLink{
    const bluetooth=(navigator as Navigator&{bluetooth?:Bluetooth}).bluetooth;
    if(!bluetooth)throw new Error('Web Bluetooth không khả dụng. Hãy mở bằng Chrome hoặc Edge trên máy có Bluetooth.');
 
-   // Always ask the browser for the car on Connect. The user explicitly accepts
-   // the native permission chooser, and this avoids Chrome reusing a stale
-   // permission/device object from an earlier failed attempt.
    const device=await bluetooth.requestDevice({
     filters:DEVICE_PREFIXES.map(namePrefix=>({namePrefix})),
     optionalServices:[CONTROL_SERVICE]
@@ -77,17 +74,15 @@ export class VehicleLink{
    this.emit({message:'Đang mở service điều khiển…'});
    let service:Service|undefined;
    for(let attempt=0;attempt<3&&!service;attempt++){
-    try{service=await this.withTimeout(server.getPrimaryService(CONTROL_SERVICE),3000,'Không tìm thấy service ae3a.');}
+    try{service=await this.withTimeout(server.getPrimaryService(CONTROL_SERVICE),3000,'Không tìm thấy service điều khiển.');}
     catch(error){lastError=error;if(attempt<2)await sleep(200)}
    }
-   if(!service)throw lastError instanceof Error?lastError:new Error('Không tìm thấy service ae3a.');
+   if(!service)throw lastError instanceof Error?lastError:new Error('Không tìm thấy service điều khiển.');
 
    this.emit({message:'Đang mở characteristic điều khiển…'});
    const char=await this.withTimeout(service.getCharacteristic(CONTROL_CHARACTERISTIC),3000,'Không tìm thấy characteristic ae3b.');
    this.char=char;
 
-   // The known-good Python script writes this exact neutral frame immediately
-   // after connecting. Do the same before marking the UI connected.
    this.emit({message:'Đang kiểm tra lệnh điều khiển…'});
    await this.withTimeout(this.writeCharacteristic(char,motorFrame()),2500,'Không ghi được lệnh thử tới xe.');
    this.lastAck=performance.now();
