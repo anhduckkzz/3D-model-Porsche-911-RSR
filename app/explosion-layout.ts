@@ -71,6 +71,7 @@ export function sampleExplosion(plan:ExplosionPlan,id:number,amount:number,out:P
  const local=a.center.clone().sub(a.position).applyQuaternion(a.quaternion.clone().invert()).divide(a.scale);
  out.position.copy(local).multiply(out.scale).applyQuaternion(out.quaternion).negate().add(out.center);return out;
 }
+
 /** Legacy Human Atlas-style explode: rigid group offsets, then one flat inventory plane. */
 export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vector3,amount:number,out:PiecePose){
  const a=Math.max(0,Math.min(1,amount));
@@ -82,4 +83,5 @@ export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vec
  return out;
 }
 
+/** One linear clock keeps the separation rate consistent while the path stays unchanged. */
 export function advanceExplosion(current:number,target:number,seconds:number){const distance=Math.max(0,Math.min(seconds,.05))*1.65;return current+Math.sign(target-current)*Math.min(Math.abs(target-current),distance)}
