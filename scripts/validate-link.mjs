@@ -1,27 +1,56 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import ts from 'typescript';
+
 const source=fs.readFileSync('app/vehicle-link.ts','utf8').replace("'./vehicle-protocol'",JSON.stringify(new URL('../app/vehicle-protocol.ts',import.meta.url).href));
 const compiled=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText;
 const {VehicleLink}=await import('data:text/javascript;base64,'+Buffer.from(compiled).toString('base64'));
-class FakeSocket{
- static OPEN=1;readyState=1;bufferedAmount=0;sent=[];
- constructor(){FakeSocket.instance=this;queueMicrotask(()=>this.onopen?.())}
- send(raw){this.sent.push(JSON.parse(raw))}
- close(){this.readyState=3;this.onclose?.()}
- state(patch={}){this.onmessage?.({data:JSON.stringify({type:'state',connected:true,armed:false,fb:0,lr:0,...patch})})}
-}
-globalThis.WebSocket=FakeSocket;
-const link=new VehicleLink(()=>{}),connecting=link.connect({transport:'bridge',endpoint:'ws://127.0.0.1:8765',token:'test-token',service:''});
-await Promise.resolve();const socket=FakeSocket.instance;socket.state();await connecting;
-assert.equal(socket.sent[0].type,'auth');assert.equal(link.state.armed,false);
-link.arm();socket.state({armed:true});assert.equal(link.state.armed,true);
-link.drive({fb:30,turn:0,pulse_ms:200,turn_id:0});assert.equal(socket.sent.at(-1).fb,30);
-link.stop();socket.state({armed:true,fb:30});assert.equal(link.state.armed,false,'Old acknowledgments cannot rearm');assert.equal(link.state.fb,0);
-link.drive({fb:100,turn:1,pulse_ms:500,turn_id:1});assert.equal(socket.sent.at(-1).type,'stop');await link.close();
-const ble=new VehicleLink(()=>{}),writes=[],resolvers=[];
-ble.device={gatt:{connected:true,disconnect(){this.connected=false}}};ble.char={writeValueWithoutResponse(data){writes.push([...data]);return new Promise(resolve=>resolvers.push(resolve))}};
-ble.state={connected:true,armed:true,fb:0,lr:0,message:''};ble.lastAck=performance.now();
-ble.drive({fb:30,turn:0,pulse_ms:200,turn_id:0});ble.drive({fb:50,turn:1,pulse_ms:200,turn_id:1});ble.stop();assert.equal(writes.length,1);
-resolvers.shift()();await new Promise(r=>setTimeout(r,0));assert.deepEqual(writes[1],[171,205,1,0,0,0,0,0]);resolvers.shift()();await new Promise(r=>setTimeout(r,0));ble.char=undefined;await ble.close();
-console.log({passed:true,staleAckCannotRearm:true,stopSupersedesQueuedMovement:true,serializedBleWrites:true});
+
+const SERVICE='0000ae3a-0000-1000-8000-00805f9b34fb';
+const CHARACTERISTIC='0000ae3b-0000-1000-8000-00805f9b34fb';
+const writes=[];
+const characteristic={async writeValueWithoutResponse(data){writes.push([...data])}};
+const device=new EventTarget();
+device.name='QY_CB26_937B';
+device.gatt={
+ connected:false,
+ async connect(){
+  this.connected=true;
+  return {async getPrimaryService(uuid){assert.equal(uuid,SERVICE);return {async getCharacteristic(charUuid){assert.equal(charUuid,CHARACTERISTIC);return characteristic}}}};
+ },
+ disconnect(){if(!this.connected)return;this.connected=false;device.dispatchEvent(new Event('gattserverdisconnected'))}
+};
+let approved=false,chooserCalls=0;
+const bluetooth={
+ async getDevices(){return approved?[device]:[]},
+ async requestDevice(options){chooserCalls++;assert(options.filters.some(f=>f.namePrefix==='QY_'));assert(options.optionalServices.includes(SERVICE));approved=true;return device}
+};
+Object.defineProperty(globalThis,'navigator',{value:{bluetooth},configurable:true});
+
+const states=[];
+const link=new VehicleLink(state=>states.push(state));
+await link.connect();
+assert.equal(link.state.connected,true);
+assert.equal(link.state.armed,false);
+assert.equal(chooserCalls,1);
+assert.deepEqual(writes[0],[171,205,1,0,0,0,0,0]);
+
+link.arm();
+await new Promise(r=>setTimeout(r,0));
+assert.equal(link.state.armed,true);
+link.drive({fb:30,turn:0,pulse_ms:200,turn_id:0});
+await new Promise(r=>setTimeout(r,0));
+assert.deepEqual(writes.at(-1),[171,205,1,30,0,0,0,30]);
+link.stop();
+await new Promise(r=>setTimeout(r,0));
+assert.equal(link.state.armed,false);
+assert.deepEqual(writes.at(-1),[171,205,1,0,0,0,0,0]);
+await link.close();
+assert.equal(link.state.connected,false);
+
+const second=new VehicleLink(()=>{});
+await second.connect();
+assert.equal(chooserCalls,1,'Previously approved device should reconnect without another chooser');
+await second.close();
+
+console.log({passed:true,directWebBluetooth:true,permissionReuse:true,stopFrame:true});
