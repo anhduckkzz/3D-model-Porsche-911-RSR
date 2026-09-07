@@ -34,37 +34,14 @@ export function groupOffsets(data:ModelData){
  order.forEach((g,i)=>{const angle=i/order.length*Math.PI*2;map.set(g.id,new T.Vector3(Math.cos(angle)*10,Math.sin(angle)*6.8,Math.sin(angle*2)*5))});return map;
 }
 
-/** Compute timing only: preserve the legacy path, but allocate time by its average travel distance. */
-export function legacyExplosionSplit(parts:Part[],data:ModelData,layout:ReturnType<typeof createFlatLayout>,offsets:Map<string,T.Vector3>){
- let first=0,second=0;
- for(const part of parts){
-  const base=new T.Vector3().setFromMatrixPosition(new T.Matrix4().fromArray(part.matrix));
-  const offset=offsets.get(part.group)??new T.Vector3();
-  const grouped=base.clone().add(offset),flat=layout.poses.get(part.id)?.position;
-  if(!flat)continue;
-  first+=base.distanceTo(grouped);second+=grouped.distanceTo(flat);
- }
- const total=first+second;
- return total>1e-6?Math.max(.25,Math.min(.75,first/total)):.4;
-}
-
-export function insertionOffset(part:Part,data:ModelData){
- const matrix=new T.Matrix4().fromArray(part.matrix),p=new T.Vector3().setFromMatrixPosition(matrix);const info=data.geometries[part.geo];
- const size=new T.Vector3().fromArray(info.bounds[1]).sub(new T.Vector3().fromArray(info.bounds[0])).multiplyScalar(.01);
- const isAxial=/\b(pin|axle)\b/i.test(info.description);const direction=isAxial?new T.Vector3().setFromMatrixColumn(matrix,1).normalize():p.clone().add(new T.Vector3(0,1.8,0)).normalize();
- if(direction.dot(p)<0)direction.negate();if(direction.lengthSq()<.01)direction.set(0,1,0);
- return direction.multiplyScalar(Math.max(.8,Math.min(2.8,size.length()+.65)));
-}
-
 /** Legacy Human Atlas-style explode: rigid group offsets, then one flat inventory plane. */
-export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vector3,amount:number,out:PiecePose,split=.4){
- const a=Math.max(0,Math.min(1,amount)),boundary=Math.max(.25,Math.min(.75,split));
- if(a<=boundary){
-  const t=a/boundary;out.position.copy(base.position).addScaledVector(offset,t);out.quaternion.copy(base.quaternion);out.scale.copy(base.scale);out.center.copy(base.center).addScaledVector(offset,t);
+export function sampleLegacyExplosion(base:PiecePose,flat:PiecePose,offset:T.Vector3,amount:number,out:PiecePose){
+ const a=Math.max(0,Math.min(1,amount));
+ if(a<=.4){
+  const t=a/.4;out.position.copy(base.position).addScaledVector(offset,t);out.quaternion.copy(base.quaternion);out.scale.copy(base.scale);out.center.copy(base.center).addScaledVector(offset,t);
  }else{
-  const t=(a-boundary)/(1-boundary);out.position.copy(base.position).add(offset).lerp(flat.position,t);out.quaternion.copy(base.quaternion).slerp(flat.quaternion,t);out.scale.copy(base.scale).lerp(flat.scale,t);out.center.copy(base.center).add(offset).lerp(flat.center,t);
+  const t=(a-.4)/.6;out.position.copy(base.position).add(offset).lerp(flat.position,t);out.quaternion.copy(base.quaternion).slerp(flat.quaternion,t);out.scale.copy(base.scale).lerp(flat.scale,t);out.center.copy(base.center).add(offset).lerp(flat.center,t);
  }
  return out;
 }
-
 export function advanceExplosion(current:number,target:number,seconds:number){const distance=Math.max(0,Math.min(seconds,.05))*1.65;return current+Math.sign(target-current)*Math.min(Math.abs(target-current),distance)}
