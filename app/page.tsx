@@ -14,7 +14,6 @@ import type {ModelData,ViewerMode} from './model-types';
 
 function IconButton({label,children,onClick,disabled=false,active=false}:{label:string;children:React.ReactNode;onClick:()=>void;disabled?:boolean;active?:boolean}){return <Tooltip><TooltipTrigger asChild><button type="button" className={`icon-button ${active?'is-active':''}`} aria-label={label} disabled={disabled} onClick={onClick}>{children}</button></TooltipTrigger><TooltipContent side="bottom">{label}</TooltipContent></Tooltip>}
 const partName=(name:string)=>name.replace(/^42096 - /,'').replace(/\.(dat|ldr)$/,'');
-const EXPLORE_SPLIT=.4;
 
 export default function Home(){
  const [data,setData]=useState<ModelData|null>(null),[mode,setMode]=useState<ViewerMode>('explore'),[step,setStep]=useState(1),[explode,setExplode]=useState(0),[group,setGroup]=useState('all'),[selected,setSelected]=useState<number|null>(null),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState('1'),[replay,setReplay]=useState(0),[followStep,setFollowStep]=useState(true),[info,setInfo]=useState(false),[groupsOpen,setGroupsOpen]=useState(false);
