@@ -6,7 +6,7 @@ import {DriveIntent,type Direction} from './vehicle-protocol';
 import {VehicleLink,type VehicleState} from './vehicle-link';
 
 export default function DriveConsole(){
- const [state,setState]=useState<VehicleState>({connected:false,armed:false,fb:0,lr:0,message:'Chưa kết nối'}),[busy,setBusy]=useState(false),[speed,setSpeed]=useState(30),[pulse,setPulse]=useState(200);
+ const [state,setState]=useState<VehicleState>({connected:false,armed:false,fb:0,lr:0,message:'Chưa kết nối'}),[busy,setBusy]=useState(false),[speed,setSpeed]=useState(30),[pulse,setPulse]=useState(200),[connectError,setConnectError]=useState('');
  const pulseTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
  const link=useRef<VehicleLink|null>(null),intent=useRef(new DriveIntent()),config=useRef({speed,pulse});config.current={speed,pulse};
  function transmit(){const command=intent.current.sample(performance.now(),config.current.speed,config.current.pulse);link.current?.drive(command)}
@@ -21,12 +21,18 @@ export default function DriveConsole(){
   const hidden=()=>{if(document.hidden)halt()};window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',halt);window.addEventListener('pagehide',halt);document.addEventListener('visibilitychange',hidden);
   return()=>{mounted=false;clearInterval(tick);if(pulseTimer.current)clearTimeout(pulseTimer.current);intent.current.clear();void current.close();window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',halt);window.removeEventListener('pagehide',halt);document.removeEventListener('visibilitychange',hidden)};
  },[]);
- async function connect(){if(busy||state.connected)return;setBusy(true);try{await link.current?.connect();link.current?.arm()}catch{}finally{setBusy(false)}}
+ async function connect(){
+  if(busy||state.connected)return;setBusy(true);setConnectError('');
+  try{await link.current?.connect();link.current?.arm()}
+  catch(error){setConnectError(error instanceof Error?(error.name&&error.name!=='Error'?`${error.name}: ${error.message}`:error.message):'Không kết nối được xe.')}
+  finally{setBusy(false)}
+ }
  const arrows=[['forward','Tiến',ArrowUp],['left','Rẽ trái',ArrowLeft],['right','Rẽ phải',ArrowRight],['backward','Lùi',ArrowDown]] as const;
  return <>
   <div className="drive-identity"><span className="small-label">VEHICLE CONTROL</span><h2>Porsche 911 RSR</h2></div>
   <aside className="drive-panel">
-   <button className="connect-button" disabled={busy} onClick={()=>void connect()} aria-label={state.connected?'Đã kết nối':'Kết nối xe'} style={state.connected?{color:'#1f9d55',borderColor:'#bfe7cf',background:'#f4fbf7'}:undefined}>{state.connected?<Check size={19} strokeWidth={2.4}/>:<><Bluetooth size={16}/><span>{busy?'Connecting…':'Connect'}</span></>}</button>
+   <button className="connect-button" disabled={busy} onClick={()=>void connect()} aria-label={state.connected?'Đã kết nối':'Kết nối xe'} title={!state.connected&&connectError?connectError:undefined} style={state.connected?{color:'#1f9d55',borderColor:'#bfe7cf',background:'#f4fbf7'}:undefined}>{state.connected?<Check size={19} strokeWidth={2.4}/>:<><Bluetooth size={16}/><span>{busy?state.message:'Connect'}</span></>}</button>
+   {!state.connected&&connectError&&<p className="drive-connect-error" role="status">{connectError}</p>}
    <div className="drive-section"><div className="drive-label"><span>Mức truyền động</span><strong>{speed}<small>%</small></strong></div><Slider min={25} max={100} step={1} value={[speed]} aria-label="Mức truyền động" onValueChange={v=>{setSpeed(v[0]);intent.current.clear()}}/><div className="drive-presets">{[30,50,100].map(v=><button key={v} className={speed===v?'chosen':''} onClick={()=>{setSpeed(v);intent.current.clear()}}>{v}%</button>)}</div></div>
    <div className="command-readout"><span>Lệnh đang gửi</span><strong>{state.fb>0?'Tiến':state.fb<0?'Lùi':'Dừng'}{state.lr<0?' · Trái':state.lr>0?' · Phải':''}</strong></div>
   </aside>
