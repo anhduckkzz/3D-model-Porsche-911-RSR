@@ -21,7 +21,7 @@ export default function DriveConsole(){
   const hidden=()=>{if(document.hidden)halt()};window.addEventListener('keydown',down);window.addEventListener('keyup',up);window.addEventListener('blur',halt);window.addEventListener('pagehide',halt);document.addEventListener('visibilitychange',hidden);
   return()=>{mounted=false;clearInterval(tick);if(pulseTimer.current)clearTimeout(pulseTimer.current);intent.current.clear();void current.close();window.removeEventListener('keydown',down);window.removeEventListener('keyup',up);window.removeEventListener('blur',halt);window.removeEventListener('pagehide',halt);document.removeEventListener('visibilitychange',hidden)};
  },[]);
- async function connect(){if(busy||state.connected)return;setBusy(true);try{await link.current?.connectLocal();link.current?.arm()}catch{}finally{setBusy(false)}}
+ async function connect(){if(busy||state.connected)return;setBusy(true);try{await link.current?.connect();link.current?.arm()}catch{}finally{setBusy(false)}}
  const arrows=[['forward','Tiến',ArrowUp],['left','Rẽ trái',ArrowLeft],['right','Rẽ phải',ArrowRight],['backward','Lùi',ArrowDown]] as const;
  return <>
   <div className="drive-identity"><span className="small-label">VEHICLE CONTROL</span><h2>Porsche 911 RSR</h2></div>
