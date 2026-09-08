@@ -86,14 +86,14 @@ export type DriveRoad={root:T.Group;setGroundY:(y:number)=>void;update:(distance
  * lane markings move underneath it, so wheel rotation and steering stay legible.
  */
 export function createDriveRoad():DriveRoad{
- const root=new T.Group(),materials:T.Material[]=[],geometries:T.BufferGeometry[]=[],meshes:(T.Mesh|T.InstancedMesh)[]=[];
+ const root=new T.Group(),materials:T.Material[]=[],geometries:T.BufferGeometry[]=[];
  const material=(color:number,roughness=.9)=>{const m=new T.MeshStandardMaterial({color,roughness,metalness:0});materials.push(m);return m};
  const asphalt=material(0x30363a,.97),paint=material(0xe9eceb,.72),edge=material(0xcfd4d2,.8),seam=material(0x24292c,1);
- const planeGeo=new T.PlaneGeometry(12,90);geometries.push(planeGeo);const plane=new T.Mesh(planeGeo,asphalt);plane.rotation.x=-Math.PI/2;plane.receiveShadow=true;root.add(plane);meshes.push(plane);
- function strip(x:number,width:number,mat:T.Material){const g=new T.BoxGeometry(width,.018,90);geometries.push(g);const m=new T.Mesh(g,mat);m.position.set(x,.012,0);root.add(m);meshes.push(m)}
+ const planeGeo=new T.PlaneGeometry(12,90);geometries.push(planeGeo);const plane=new T.Mesh(planeGeo,asphalt);plane.rotation.x=-Math.PI/2;plane.receiveShadow=true;root.add(plane);
+ function strip(x:number,width:number,mat:T.Material){const g=new T.BoxGeometry(width,.018,90);geometries.push(g);const mesh=new T.Mesh(g,mat);mesh.position.set(x,.012,0);root.add(mesh)}
  strip(-5.15,.08,edge);strip(5.15,.08,edge);
  const markings=new T.Group();root.add(markings);
- const dashGeo=new T.BoxGeometry(.09,.022,1.55);geometries.push(dashGeo);const count=52,dashes=new T.InstancedMesh(dashGeo,paint,count);const m=new T.Matrix4();let n=0;for(const x of [-3.15,3.15])for(let i=-13;i<13;i++){m.makeTranslation(x,.016,i*3.25);dashes.setMatrixAt(n++,m)}dashes.computeBoundingSphere();markings.add(dashes);meshes.push(dashes);
- const seamGeo=new T.BoxGeometry(10.3,.012,.025);geometries.push(seamGeo);const seams=new T.InstancedMesh(seamGeo,seam,15);for(let i=0;i<15;i++){m.makeTranslation(0,.007,(i-7)*6.5);seams.setMatrixAt(i,m)}seams.computeBoundingSphere();markings.add(seams);meshes.push(seams);
- return {root,setGroundY(y){root.position.y=y},update(distance){const spacing=3.25;markings.position.z=((distance%spacing)+spacing)%spacing},dispose(){meshes.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}};
+ const dashGeo=new T.BoxGeometry(.09,.022,1.55);geometries.push(dashGeo);const count=52,dashes=new T.InstancedMesh(dashGeo,paint,count);const matrix=new T.Matrix4();let n=0;for(const x of [-3.15,3.15])for(let i=-13;i<13;i++){matrix.makeTranslation(x,.016,i*3.25);dashes.setMatrixAt(n++,matrix)}dashes.computeBoundingSphere();markings.add(dashes);
+ const seamGeo=new T.BoxGeometry(10.3,.012,.025);geometries.push(seamGeo);const seams=new T.InstancedMesh(seamGeo,seam,15);for(let i=0;i<15;i++){matrix.makeTranslation(0,.007,(i-7)*6.5);seams.setMatrixAt(i,matrix)}seams.computeBoundingSphere();markings.add(seams);
+ return {root,setGroundY(y){root.position.y=y},update(distance){const spacing=3.25;markings.position.z=((distance%spacing)+spacing)%spacing},dispose(){geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}};
 }
