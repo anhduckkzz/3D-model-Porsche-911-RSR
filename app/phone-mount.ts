@@ -7,8 +7,8 @@ import {mountCatalog,mountParts} from './phone-mount-parts';
  * Geometry buffers belong to Scene and are never disposed here.
  */
 export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeometry[]){
- const root=new T.Group(),stages=Array.from({length:5},()=>new T.Group());
- stages.forEach(g=>root.add(g));root.position.set(0,.3,.6);
+ const root=new T.Group(),stages=Array.from({length:5},()=>new T.Group()),guides=new T.Group();
+ stages.forEach(g=>root.add(g));stages[4].add(guides);
  const materials:T.Material[]=[],geometries:T.BufferGeometry[]=[],instances:T.InstancedMesh[]=[];
  const mat=(color:number,options:Partial<T.MeshStandardMaterialParameters>={})=>{const m=new T.MeshStandardMaterial({color,roughness:.3,...options});materials.push(m);return m};
  const plastic=mat(0xffffff,{vertexColors:true,metalness:.03,side:T.DoubleSide});
@@ -39,10 +39,16 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  // Actual active lens and optical FOV must be calibrated on the handset.
  box(4,[.58,.58,.06],[1.32,3.37,.23],black);
  for(const x of [1.17,1.47])for(const y of [3.22,3.52]){const g=new T.CylinderGeometry(.082,.082,.035,16);geometries.push(g);const m=new T.Mesh(g,glass);m.rotation.x=Math.PI/2;m.position.set(x,y,.28);stages[4].add(m)}
- const sight=new T.ArrowHelper(new T.Vector3(0,0,1),new T.Vector3(1.17,3.52,.3),2.3,0x487b9a,.25,.14);stages[4].add(sight);
+ const sight=new T.ArrowHelper(new T.Vector3(0,0,1),new T.Vector3(1.17,3.52,.3),2.3,0x487b9a,.25,.14);guides.add(sight);
  // Wire frustum is an aiming aid only, intentionally not labeled as calibrated FOV.
  const lines:number[]=[];const eye=[1.17,3.52,.3],corners=[[-.8,2.8,2.6],[3.1,2.8,2.6],[3.1,4.4,2.6],[-.8,4.4,2.6]];
  corners.forEach((p,i)=>lines.push(...eye,...p,...p,...corners[(i+1)%4]));
- const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.45});materials.push(fm);stages[4].add(new T.LineSegments(fg,fm));
- return {root,update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=(i===4?.1:0)+(exploded?i*.85:0)});root.updateMatrixWorld(true)},dispose(){instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}};
+ const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.45});materials.push(fm);guides.add(new T.LineSegments(fg,fm));
+ return {
+  root,
+  install(position:T.Vector3,orientation:T.Quaternion){root.position.copy(position);root.quaternion.copy(orientation);root.updateMatrixWorld(true)},
+  setGuides(visible:boolean){guides.visible=visible},
+  update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=(i===4?.1:0)+(exploded?i*.85:0)});root.updateMatrixWorld(true)},
+  dispose(){instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}
+ };
 }
