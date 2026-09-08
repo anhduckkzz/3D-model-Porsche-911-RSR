@@ -11,7 +11,8 @@ export class DriveIntent{
  sample(_now:number,speed:number,pulse=500){
   const directions=new Set(this.held.values());
   const fb=Number(directions.has('forward'))-Number(directions.has('backward'));
-  const left=directions.has('left'),right=directions.has('right'),turn:left===right?0:left?-1:1;
+  const left=directions.has('left'),right=directions.has('right');
+  const turn=left===right?0:left?-1:1;
   return {type:'drive',fb:fb?clampMotor(fb*speed):0,turn,pulse_ms:Math.max(100,Math.min(500,Math.round(pulse))),turn_id:this.turnId};
  }
 }
