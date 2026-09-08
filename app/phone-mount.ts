@@ -3,7 +3,7 @@ import type {ModelData} from './model-types';
 import {mountCatalog,mountParts} from './phone-mount-parts';
 
 /** Every LEGO mesh references an existing, unmodified LDraw geometry buffer.
- * Only the phone envelope and camera direction are illustrative geometry.
+ * Only the phone envelope and optional camera direction aid are illustrative.
  * Geometry buffers belong to Scene and are never disposed here.
  */
 export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeometry[]){
@@ -36,13 +36,20 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  box(4,[156.2*.025,75.04*.025,8.55*.025],[0,2.96,.09],phone);
  box(4,[3.76,1.74,.015],[0,2.96,-.025],glass);
  // Approximate location of rear camera island after landscape rotation.
- // Actual active lens and optical FOV must be calibrated on the handset.
  box(4,[.58,.58,.06],[1.32,3.37,.23],black);
  for(const x of [1.17,1.47])for(const y of [3.22,3.52]){const g=new T.CylinderGeometry(.082,.082,.035,16);geometries.push(g);const m=new T.Mesh(g,glass);m.rotation.x=Math.PI/2;m.position.set(x,y,.28);stages[4].add(m)}
- const sight=new T.ArrowHelper(new T.Vector3(0,0,1),new T.Vector3(1.17,3.52,.3),2.3,0x487b9a,.25,.14);stages[4].add(sight);
- // Wire frustum is an aiming aid only, intentionally not labeled as calibrated FOV.
+
+ // Camera direction/FOV are inspection aids only. They stay available in the
+ // Advanced design view, but are hidden on the installed rig in Drive mode.
+ const aids=new T.Group();stages[4].add(aids);
+ const sight=new T.ArrowHelper(new T.Vector3(0,0,1),new T.Vector3(1.17,3.52,.3),2.3,0x487b9a,.25,.14);aids.add(sight);
  const lines:number[]=[];const eye=[1.17,3.52,.3],corners=[[-.8,2.8,2.6],[3.1,2.8,2.6],[3.1,4.4,2.6],[-.8,4.4,2.6]];
  corners.forEach((p,i)=>lines.push(...eye,...p,...p,...corners[(i+1)%4]));
- const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.45});materials.push(fm);stages[4].add(new T.LineSegments(fg,fm));
- return {root,update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=(i===4?.1:0)+(exploded?i*.85:0)});root.updateMatrixWorld(true)},dispose(){instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}};
+ const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.45});materials.push(fm);aids.add(new T.LineSegments(fg,fm));
+ return {
+  root,
+  update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=(i===4?.1:0)+(exploded?i*.85:0)});root.updateMatrixWorld(true)},
+  setAids(visible:boolean){aids.visible=visible},
+  dispose(){instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}
+ };
 }
