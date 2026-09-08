@@ -6,6 +6,7 @@ import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {createFlatLayout,groupOffsets,sampleLegacyExplosion,advanceExplosion,insertionOffset,type PiecePose,FLAT_ROTATION} from './explosion-layout';
 import {assemblyFrame} from './assembly-guide';
 import {createPhoneMount} from './phone-mount';
+import {createDriveRig,createDriveRoad,sampleWheelPose,type DriveRig,type DriveRoad} from './drive-visual';
 import type {VehicleState} from './vehicle-link';
 import type {ModelData,Part,ViewerMode} from './model-types';
 
@@ -13,7 +14,7 @@ export type SceneHandle={fit:()=>void;view:(v:'iso'|'top'|'side')=>void;focus:()
 type Props={drive:VehicleState;mountStep:number;mountContext:boolean;mountExplode:boolean;step:number;explode:number;group:string;selected:number|null;mode:ViewerMode;replay:number;followStep:boolean;bench:boolean;onExplosionSplit:(n:number)=>void;onReady:(d:ModelData)=>void;onSelect:(id:number|null)=>void;previewHost:RefObject<HTMLDivElement|null>};
 type Batch={mesh:T.InstancedMesh;parts:Part[];ids:number[];styles:T.InstancedBufferAttribute};
 type Motion={part:Part;from:PiecePose;to:PiecePose;delay:number};
-const ISO=new T.Vector3(1,.63,1).normalize();
+const ISO=new T.Vector3(1,.63,1).normalize(),DRIVE_CAMERA=new T.Vector3(.54,.34,1).normalize();
 const smooth=(t:number)=>t*t*(3-2*t);
 function pose(matrix:T.Matrix4):PiecePose{const position=new T.Vector3(),quaternion=new T.Quaternion(),scale=new T.Vector3();matrix.decompose(position,quaternion,scale);return {position,quaternion,scale,center:position.clone()}}
 function clonePose(p:PiecePose):PiecePose{return {position:p.position.clone(),quaternion:p.quaternion.clone(),scale:p.scale.clone(),center:p.center.clone()}}
@@ -29,9 +30,8 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   const el=host.current!;let disposed=false,ready=false,raf=0,worker:Worker|undefined,renderer:T.WebGLRenderer|undefined,controls:OrbitControls|undefined,resize:ResizeObserver|undefined,previewResize:ResizeObserver|undefined;
   const scene=new T.Scene(),camera=new T.OrthographicCamera(-10,10,10,-10,.01,2000),previewScene=new T.Scene(),previewCamera=new T.OrthographicCamera(-3,3,3,-3,.01,100);
   let previewRenderer:T.WebGLRenderer|undefined,previewControls:OrbitControls|undefined,previewKey='',previewDirty=true;
-  const vehicle=new T.Group();scene.add(vehicle);let mount:ReturnType<typeof createPhoneMount>|undefined;
-  const road=new T.GridHelper(24,24,0xb4c4ce,0xd9e1e6);road.position.y=-2.08;road.visible=false;scene.add(road);
-  let roadOffset=0,driveZ=0,driveYaw=0;
+  const vehicle=new T.Group();scene.add(vehicle);let mount:ReturnType<typeof createPhoneMount>|undefined,driveRig:DriveRig|undefined,road:DriveRoad|undefined;
+  let driveSpeed=0,driveSteer=0,driveDistance=0,bodyPitch=0,bodyRoll=0;
   const previewGroup=new T.Group(),arrows=new T.Group();previewScene.add(previewGroup);scene.add(arrows);
   let model:ModelData,geometries:T.BufferGeometry[]=[],lowIndices:T.BufferAttribute[]=[],highIndices:T.BufferAttribute[]=[],batches:Batch[]=[],current:PiecePose[]=[],base:PiecePose[]=[],destinations:PiecePose[]=[],visible:Part[]=[],layout:ReturnType<typeof createFlatLayout>|undefined;
   const slots=new Map<number,{batch:Batch;index:number}>(),mats:T.Material[]=[],cleanups:(()=>void)[]=[];let environment:T.WebGLRenderTarget|undefined;
@@ -39,7 +39,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   let amount=0,explosionTarget=0,buildFrame:ReturnType<typeof assemblyFrame>|undefined;
   let cameraMotion:{start:number;fromTarget:T.Vector3;toTarget:T.Vector3;fromDir:T.Vector3;toDir:T.Vector3;fromSpan:number;toSpan:number}|null=null;
   const marker=new T.Box3Helper(new T.Box3(),0x47749b);marker.visible=false;scene.add(marker);
-  const matrix=new T.Matrix4(),position=new T.Vector3(),quaternion=new T.Quaternion(),scale=new T.Vector3();
+  const matrix=new T.Matrix4(),position=new T.Vector3(),quaternion=new T.Quaternion(),scale=new T.Vector3(),pitchQ=new T.Quaternion(),rollQ=new T.Quaternion(),bodyQ=new T.Quaternion();
   let lastFrame=0,slowTime=0,samples:number[]=[];
   function request(){dirty=true;if(!raf&&!disposed&&!document.hidden)raf=requestAnimationFrame(frame)}
   wake.current=request;
@@ -53,20 +53,18 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const center=bounds.getCenter(new T.Vector3()),right=new T.Vector3().crossVectors(new T.Vector3(0,1,0),direction).normalize(),up=new T.Vector3().crossVectors(direction,right).normalize();if(right.lengthSq()<.01){right.set(1,0,0);up.set(0,0,-1)}
    let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;for(let n=0;n<8;n++){const v=new T.Vector3(n&1?bounds.max.x:bounds.min.x,n&2?bounds.max.y:bounds.min.y,n&4?bounds.max.z:bounds.min.z).sub(center);const x=v.dot(right),y=v.dot(up);minX=Math.min(minX,x);maxX=Math.max(maxX,x);minY=Math.min(minY,y);maxY=Math.max(maxY,y)}
    const area=viewport();const nextSpan=Math.max(.6,(maxY-minY)*el.clientHeight/area.height,(maxX-minX)*el.clientHeight/area.width)*1.12;
-   // Fit into the unobstructed viewport, including the compact mobile guide.
-   center.addScaledVector(right,(area.right-area.left)*nextSpan/el.clientHeight/2);
-   center.addScaledVector(up,-(area.bottom-area.top)*nextSpan/el.clientHeight/2);
+   center.addScaledVector(right,(area.right-area.left)*nextSpan/el.clientHeight/2);center.addScaledVector(up,-(area.bottom-area.top)*nextSpan/el.clientHeight/2);
    const oldDirection=camera.position.clone().sub(controls.target).normalize();const oldSpan=span/camera.zoom;camera.zoom=1;
    if(instant||matchMedia('(prefers-reduced-motion: reduce)').matches){span=nextSpan;configureCamera();controls.target.copy(center);camera.position.copy(center).addScaledVector(direction,250);camera.lookAt(center);controls.update();cameraMotion=null}
    else cameraMotion={start:performance.now(),fromTarget:controls.target.clone(),toTarget:center,fromDir:oldDirection,toDir:direction,fromSpan:oldSpan,toSpan:nextSpan};request();
   }
   function autoFit(instant=false){
    if(!ready||!controls)return;let focus=visible;const s=latest.current;
+   if(s.mode==='drive'&&driveRig){const worldBounds=new T.Box3().setFromObject(vehicle).expandByScalar(.65);fitBounds(worldBounds,DRIVE_CAMERA,instant);return}
    if(s.mode==='build'&&buildFrame)focus=visible.filter(p=>buildFrame!.visible.has(p.id));
    let bounds=boundsFor(focus);if(bounds.isEmpty())bounds=new T.Box3(new T.Vector3(-2,-1,-2),new T.Vector3(2,1,2));
    if(s.mode==='build')bounds.expandByScalar(.55);
    if(s.mode==='advanced'){bounds=new T.Box3().setFromObject(mount!.root);if(s.mountContext)bounds.union(boundsFor(visible))}
-   if(s.mode==='drive')bounds.expandByScalar(.8);
    fitBounds(bounds,flat?new T.Vector3(0,0,1):ISO,instant);
   }
   function stylePieces(){
@@ -85,7 +83,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
     const box=boundsFor(ids.map(id=>model.parts[id]),base),center=box.getCenter(new T.Vector3()),size=box.getSize(new T.Vector3()),factor=2.8/Math.max(size.x,size.y,size.z,.1);
     for(const id of ids){const p=model.parts[id],ps=base[id],mesh=new T.Mesh(geometries[p.geo],previewMaterial);mesh.position.copy(ps.position).sub(center).multiplyScalar(factor);mesh.quaternion.copy(ps.quaternion);mesh.scale.copy(ps.scale).multiplyScalar(factor);previewGroup.add(mesh)}
    }else{
-   unique.forEach((geo,n)=>{const mesh=new T.Mesh(geometries[geo],previewMaterial);const bounds=geometries[geo].boundingBox!,center=bounds.getCenter(new T.Vector3()),size=bounds.getSize(new T.Vector3());const factor=1.25/Math.max(size.x,size.y,size.z,.1);mesh.quaternion.copy(FLAT_ROTATION);mesh.scale.setScalar(factor);mesh.position.copy(center.multiplyScalar(-factor).applyQuaternion(FLAT_ROTATION)).add(new T.Vector3((n%columns-(columns-1)/2)*1.65,((rows-1)/2-Math.floor(n/columns))*1.65,0));previewGroup.add(mesh)});
+    unique.forEach((geo,n)=>{const mesh=new T.Mesh(geometries[geo],previewMaterial);const bounds=geometries[geo].boundingBox!,center=bounds.getCenter(new T.Vector3()),size=bounds.getSize(new T.Vector3());const factor=1.25/Math.max(size.x,size.y,size.z,.1);mesh.quaternion.copy(FLAT_ROTATION);mesh.scale.setScalar(factor);mesh.position.copy(center.multiplyScalar(-factor).applyQuaternion(FLAT_ROTATION)).add(new T.Vector3((n%columns-(columns-1)/2)*1.65,((rows-1)/2-Math.floor(n/columns))*1.65,0));previewGroup.add(mesh)});
    }
    const w=Math.max(1,host.clientWidth),h=Math.max(1,host.clientHeight),a=w/h;const half=Math.max(attachment?3:rows*1.65,attachment?3/a:columns*1.65/a,2)/2*1.12;previewCamera.left=-half*a;previewCamera.right=half*a;previewCamera.top=half;previewCamera.bottom=-half;previewCamera.zoom=1;previewCamera.position.set(0,0,20);previewCamera.lookAt(0,0,0);previewCamera.updateProjectionMatrix();previewControls?.target.set(0,0,0);previewControls?.update();previewRenderer.setSize(w,h,false);previewDirty=true;
   }
@@ -96,16 +94,17 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    if(key===lastKey){stylePieces();rebuildPreview();request();return}
    const modeChanged=s.mode!==lastMode,contextChanged=s.bench!==lastBench;const enteringBuild=s.mode==='build'&&lastMode!=='build';const animateBuild=s.mode==='build'&&(s.step!==lastStep||s.replay!==lastReplay||enteringBuild);
    lastKey=key;lastMode=s.mode;lastStep=s.step;lastReplay=s.replay;lastBench=s.bench;
-   road.visible=s.mode==='drive';
-   mount!.root.visible=s.mode==='advanced';mount!.update(s.mountStep,s.mountExplode);vehicle.visible=s.mode!=='advanced'||s.mountContext;
-   if(s.mode!=='drive'){vehicle.position.set(0,0,0);vehicle.rotation.set(0,0,0);driveZ=0;driveYaw=0}
+   if(road)road.root.visible=s.mode==='drive';
+   mount!.root.visible=s.mode==='advanced'||s.mode==='drive';mount!.setGuides(s.mode==='advanced');mount!.update(s.mode==='drive'?4:s.mountStep,s.mode==='advanced'&&s.mountExplode);
+   vehicle.visible=true;for(const b of batches)b.mesh.visible=s.mode!=='advanced'||s.mountContext;
+   if(s.mode==='drive'&&driveRig){vehicle.position.set(0,0,0);vehicle.quaternion.copy(driveRig.alignment)}
+   else{vehicle.position.set(0,0,0);vehicle.quaternion.identity();driveSpeed=0;driveSteer=0;bodyPitch=0;bodyRoll=0;driveDistance=0;road?.update(0)}
    if(controls)controls.enabled=s.mode!=='drive';
    const previousVisible=new Set(slots.keys());buildFrame=s.mode==='build'?assemblyFrame(model.assembly,s.step):undefined;
    visible=model.parts.filter(p=>buildFrame?(buildFrame.visible.has(p.id)||(!s.bench&&buildFrame.context.has(p.id))):(s.group==='all'||p.group===s.group));
    destinations=base.map(clonePose);
    if(s.mode==='explore'){
-    const nextKey=s.group+':'+availableAspect().toFixed(3);
-    const offsets=groupOffsets(model);
+    const nextKey=s.group+':'+availableAspect().toFixed(3);const offsets=groupOffsets(model);
     if(!layout||nextKey!==layoutKey){layout=createFlatLayout(visible,model,availableAspect());layoutKey=nextKey;latest.current.onExplosionSplit(.4)}
     explosionTarget=extent;if(matchMedia('(prefers-reduced-motion: reduce)').matches)amount=extent;
     for(const p of visible){const goal=layout.poses.get(p.id);if(goal)sampleLegacyExplosion(base[p.id],goal,offsets.get(p.group)??new T.Vector3(),amount,destinations[p.id])}
@@ -116,10 +115,8 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    for(const p of visible){const to=destinations[p.id],from=current[p.id]?clonePose(current[p.id]):clonePose(to);const fresh=s.mode==='build'&&!!buildFrame?.fresh.has(p.id)&&animateBuild;
     if(fresh){const offset=buildFrame?.event.kind==='attach'?new T.Vector3(0,2.5,1.5):insertionOffset(p,model);from.position.copy(to.position).add(offset);from.quaternion.copy(to.quaternion);if(buildFrame?.event.kind==='attach'?newIndex===0:newIndex<18){const localCenter=new T.Vector3().fromArray(model.geometries[p.geo].bounds[0]).add(new T.Vector3().fromArray(model.geometries[p.geo].bounds[1])).multiplyScalar(.5);const end=localCenter.multiply(to.scale).applyQuaternion(to.quaternion).add(to.position);const arrow=new T.ArrowHelper(offset.clone().normalize().negate(),end.clone().add(offset),offset.length()*.8,0xb95426,.16,.075);arrows.add(arrow)}newIndex++}
     else if(s.mode!=='build'||!previousVisible.has(p.id)||enteringBuild||s.bench)Object.assign(from,clonePose(to));
-    write(p,from);
-    const needsMotion=from.position.distanceToSquared(to.position)>1e-8||Math.abs(from.quaternion.dot(to.quaternion))<.999999;
-    if(s.mode==='explore'){if(Math.abs(amount-explosionTarget)<=1e-7)write(p,to)}
-    else if(needsMotion)motions.push({part:p,from,to,delay:0});else write(p,to);
+    write(p,from);const needsMotion=from.position.distanceToSquared(to.position)>1e-8||Math.abs(from.quaternion.dot(to.quaternion))<.999999;
+    if(s.mode==='explore'){if(Math.abs(amount-explosionTarget)<=1e-7)write(p,to)}else if(needsMotion)motions.push({part:p,from,to,delay:0});else write(p,to);
    }
    motionStart=performance.now();motionDuration=s.mode==='build'?1100:700;if(matchMedia('(prefers-reduced-motion: reduce)').matches){for(const p of visible)write(p,destinations[p.id]);motions=[];arrows.visible=false}else arrows.visible=s.mode==='build'&&motions.length>0;
    for(const b of batches)b.mesh.computeBoundingSphere();stylePieces();
@@ -129,27 +126,23 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   function frame(now:number){
    raf=0;if(disposed||!renderer||!controls||document.hidden)return;
    const delta=lastFrame?now-lastFrame:0;lastFrame=now;
-   const ds=latest.current.drive,driving=latest.current.mode==='drive';
-   let driveMoving=false;
-   if(driving){
-    const active=ds.connected&&ds.armed,fb=active?Math.sign(ds.fb):0,lr=active?Math.sign(ds.lr):0;
-    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const blend=1-Math.exp(-Math.min(delta||16,50)/140),targetZ=fb*.65,targetYaw=lr*.17;
-    driveZ=reduced?0:T.MathUtils.lerp(driveZ,targetZ,blend);driveYaw=reduced?0:T.MathUtils.lerp(driveYaw,targetYaw,blend);
-    vehicle.position.z=driveZ;vehicle.rotation.y=driveYaw;
-    if(!reduced&&fb){roadOffset=(roadOffset-fb*Math.min(delta||16,50)*.0015)%1;road.position.z=roadOffset}
-    // Command visualization only: bounded pose, never accumulated fake odometry.
-    driveMoving=!!fb||Math.abs(driveZ-targetZ)>.001||Math.abs(driveYaw-targetYaw)>.001;
-    if(reduced)driveMoving=false;dirty=true;
+   const ds=latest.current.drive,driving=latest.current.mode==='drive';let driveMoving=false;
+   if(driving&&driveRig&&road){
+    const active=ds.connected&&ds.armed,reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,dt=Math.min(delta||16,50)/1000;
+    const targetSpeed=active?T.MathUtils.clamp(ds.fb/100,-1,1):0,targetSteer=active?T.MathUtils.clamp(ds.lr/100,-1,1):0,previousSpeed=driveSpeed;
+    if(reduced){driveSpeed=0;driveSteer=0}else{driveSpeed=T.MathUtils.lerp(driveSpeed,targetSpeed,1-Math.exp(-dt*7));driveSteer=T.MathUtils.lerp(driveSteer,targetSteer,1-Math.exp(-dt*12))}
+    const acceleration=dt>0?(driveSpeed-previousSpeed)/dt:0,velocity=driveSpeed*5.6;driveDistance+=velocity*dt;
+    bodyPitch=T.MathUtils.lerp(bodyPitch,T.MathUtils.clamp(-acceleration*.009,-.035,.035),1-Math.exp(-dt*9));bodyRoll=T.MathUtils.lerp(bodyRoll,-driveSteer*Math.abs(driveSpeed)*.026,1-Math.exp(-dt*8));
+    const steerAngle=-driveSteer*.43;
+    for(const wheel of driveRig.wheels){const spin=driveDistance/Math.max(.2,wheel.radius);for(const id of wheel.ids){const p=model.parts[id];if(!slots.has(id))continue;sampleWheelPose(driveRig,id,base[id],spin,steerAngle,destinations[id]);write(p,destinations[id])}}
+    pitchQ.setFromAxisAngle(driveRig.side,bodyPitch);rollQ.setFromAxisAngle(driveRig.forward,bodyRoll);bodyQ.copy(rollQ).multiply(pitchQ);vehicle.quaternion.copy(driveRig.alignment).multiply(bodyQ);vehicle.position.set(0,reduced?0:Math.sin(now*.018)*.012*Math.abs(driveSpeed),0);road.update(driveDistance);
+    driveMoving=!reduced&&(Math.abs(targetSpeed-driveSpeed)>.001||Math.abs(targetSteer-driveSteer)>.001||Math.abs(driveSpeed)>.001||Math.abs(driveSteer)>.001);dirty=true;
    }
    const exploring=latest.current.mode==='explore'&&Math.abs(amount-explosionTarget)>1e-7;
    if(exploring){
-    amount=advanceExplosion(amount,explosionTarget,delta?delta/1000:1/60);
-    const offsets=groupOffsets(model);
+    amount=advanceExplosion(amount,explosionTarget,delta?delta/1000:1/60);const offsets=groupOffsets(model);
     for(const p of visible){const goal=layout?.poses.get(p.id);if(goal){sampleLegacyExplosion(base[p.id],goal,offsets.get(p.group)??new T.Vector3(),amount,destinations[p.id]);write(p,destinations[p.id])}}
-    for(const b of batches)b.mesh.computeBoundingSphere();
-    const direction=ISO.clone().lerp(new T.Vector3(0,0,1),Math.max(0,Math.min(1,(amount-.4)/.6))).normalize();
-    fitBounds(boundsFor(visible),direction,true);flat=amount>.92;controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE;stylePieces();dirty=true;
+    for(const b of batches)b.mesh.computeBoundingSphere();const direction=ISO.clone().lerp(new T.Vector3(0,0,1),Math.max(0,Math.min(1,(amount-.4)/.6))).normalize();fitBounds(boundsFor(visible),direction,true);flat=amount>.92;controls.enableRotate=!flat;controls.mouseButtons.LEFT=flat?T.MOUSE.PAN:T.MOUSE.ROTATE;controls.touches.ONE=flat?T.TOUCH.PAN:T.TOUCH.ROTATE;stylePieces();dirty=true;
    }
    if(motions.length){const elapsed=Math.min(1,(now-motionStart)/motionDuration);const changed=new Set<Batch>();for(const m of motions){const t=smooth(Math.max(0,Math.min(1,(elapsed-m.delay)/(1-m.delay))));position.copy(m.from.position).lerp(m.to.position,t);quaternion.copy(m.from.quaternion).slerp(m.to.quaternion,t);scale.copy(m.from.scale).lerp(m.to.scale,t);write(m.part,{position,quaternion,scale,center:position});const slot=slots.get(m.part.id);if(slot)changed.add(slot.batch)}for(const b of changed)b.mesh.computeBoundingSphere();if(elapsed>=1){motions=[];arrows.visible=false}stylePieces();dirty=true}
    if(cameraMotion){const a=smooth(Math.min(1,(now-cameraMotion.start)/700));span=T.MathUtils.lerp(cameraMotion.fromSpan,cameraMotion.toSpan,a);configureCamera();controls.target.copy(cameraMotion.fromTarget).lerp(cameraMotion.toTarget,a);const direction=cameraMotion.fromDir.clone().lerp(cameraMotion.toDir,a).normalize();camera.position.copy(controls.target).addScaledVector(direction,250);camera.lookAt(controls.target);if(a>=1)cameraMotion=null;dirty=true}
@@ -161,11 +154,12 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    renderer=new T.WebGLRenderer({antialias:true,alpha:false,powerPreference:'high-performance'});renderer.setClearColor(0xf1f3f4);renderer.setPixelRatio(pixelRatio);renderer.setSize(el.clientWidth,el.clientHeight,false);renderer.outputColorSpace=T.SRGBColorSpace;renderer.toneMapping=T.ACESFilmicToneMapping;renderer.toneMappingExposure=1.02;el.appendChild(renderer.domElement);renderer.domElement.setAttribute('aria-label','Porsche 911 RSR tương tác. Kéo để xoay, cuộn để zoom, chạm để chọn mảnh.');renderer.domElement.tabIndex=0;
    aspect=el.clientWidth/Math.max(1,el.clientHeight);configureCamera();camera.position.copy(ISO).multiplyScalar(250);camera.lookAt(0,0,0);controls=new OrbitControls(camera,renderer.domElement);controls.enableDamping=true;controls.dampingFactor=.1;controls.minZoom=.35;controls.maxZoom=90;controls.maxPolarAngle=Math.PI*.97;controls.addEventListener('change',request);controls.addEventListener('start',()=>{cameraMotion=null});
    const generator=new T.PMREMGenerator(renderer),room=new RoomEnvironment();environment=generator.fromScene(room,.04);scene.environment=environment.texture;room.dispose();generator.dispose();scene.add(new T.HemisphereLight(0xffffff,0x969da6,1.5));const key=new T.DirectionalLight(0xffffff,2.1);key.position.set(-4,10,6);scene.add(key);const fill=new T.DirectionalLight(0xffffff,1);fill.position.set(7,4,-7);scene.add(fill);
-   const loaded=await new Promise<{model:ModelData;buffer:ArrayBuffer}>((resolve,reject)=>{worker=new Worker('/model-worker.js');worker.onmessage=e=>{if(e.data.error)reject(new Error(e.data.error));else resolve(e.data);worker?.terminate()};worker.onerror=()=>reject(new Error('Không tải được mô hình.'));worker.postMessage({load:true})});if(disposed)return;model=loaded.model;const binary=loaded.buffer;setStatus('Chuẩn bị cảnh 3D…');
+   const loaded=await new Promise<{model:ModelData;buffer:ArrayBuffer}>((resolve,reject)=>{worker=new Worker('/model-worker.js');worker.onmessage=e=>{if(e.data.error)reject(new Error(e.data.error));else resolve(e.data)};worker.onerror=()=>reject(new Error('Không tải được mô hình.'));worker.postMessage({load:true})});if(disposed)return;model=loaded.model;const binary=loaded.buffer;worker?.terminate();setStatus('Chuẩn bị cảnh 3D…');
    for(const info of model.geometries){const g=new T.BufferGeometry();for(const k of ['position','normal','color'] as const){const a=info[k];g.setAttribute(k,new T.BufferAttribute(new Float32Array(binary,a.offset,a.count),3))}const hi=new T.BufferAttribute(new Uint32Array(binary,info.index.offset,info.index.count),1),lo=new T.BufferAttribute(new Uint32Array(binary,info.indexLow.offset,info.indexLow.count),1);highIndices.push(hi);lowIndices.push(lo);g.setIndex(lowDetail?lo:hi);g.computeBoundingBox();g.computeBoundingSphere();geometries.push(g)}
-   mount=createPhoneMount(model,geometries);mount.root.visible=false;scene.add(mount.root);
    const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.03,side:T.DoubleSide});material.onBeforeCompile=shader=>{shader.vertexShader='attribute float pieceStyle; varying float vPieceStyle;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPieceStyle = pieceStyle;');shader.fragmentShader='varying float vPieceStyle;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nif (vPieceStyle > 2.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75,0.79,0.82), 0.9); } else if (vPieceStyle > 1.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12,0.34,0.64), 0.82); } else if (vPieceStyle > 0.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85,0.24,0.065), 0.76); }')};mats.push(material);
    const byGeo=new Map<number,Part[]>();for(const p of model.parts){if(!byGeo.has(p.geo))byGeo.set(p.geo,[]);byGeo.get(p.geo)!.push(p);base[p.id]=pose(new T.Matrix4().fromArray(p.matrix));current[p.id]=clonePose(base[p.id])}
+   driveRig=createDriveRig(model,base);road=createDriveRoad();road.setGroundY(driveRig.roadY);road.root.visible=false;scene.add(road.root);
+   mount=createPhoneMount(model,geometries);mount.install(driveRig.mountPosition,driveRig.mountQuaternion);mount.setGuides(false);mount.root.visible=false;vehicle.add(mount.root);
    for(const [geo,parts] of byGeo){const styles=new T.InstancedBufferAttribute(new Float32Array(parts.length),1);styles.setUsage(T.DynamicDrawUsage);geometries[geo].setAttribute('pieceStyle',styles);const mesh=new T.InstancedMesh(geometries[geo],material,parts.length);mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.count=0;vehicle.add(mesh);batches.push({mesh,parts,ids:[],styles})}
    ready=true;apply.current=updateState;api.current={fit:()=>autoFit(),view:v=>{if(latest.current.mode==='drive')return;const direction=flat?new T.Vector3(0,0,1):v==='top'?new T.Vector3(0,1,.001).normalize():v==='side'?new T.Vector3(1,.1,0).normalize():ISO;const bounds=latest.current.mode==='advanced'?new T.Box3().setFromObject(mount!.root):boundsFor(visible);if(latest.current.mode==='advanced'&&latest.current.mountContext)bounds.union(boundsFor(visible));fitBounds(bounds,direction)},focus:()=>{const p=model.parts[latest.current.selected??-1];if(p&&slots.has(p.id))fitBounds(boundsFor([p],current).expandByScalar(.15),flat?new T.Vector3(0,0,1):ISO)}};
    const ray=new T.Raycaster(),pointer=new T.Vector2(),pointers=new Set<number>();let sx=0,sy=0,multi=false,dragged=false;
@@ -177,7 +171,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const visibility=()=>{if(document.hidden){if(raf)cancelAnimationFrame(raf);raf=0;lastFrame=0}else request()};document.addEventListener('visibilitychange',visibility);cleanups.push(()=>document.removeEventListener('visibilitychange',visibility));
    latest.current.onReady(model);updateState();autoFit(true);setStatus('');request();
   }catch(e){if(disposed)return;setError(true);setStatus(e instanceof Error?e.message:'Không thể mở cảnh 3D.');console.error(e)}}
-  start();return()=>{disposed=true;worker?.terminate();if(raf)cancelAnimationFrame(raf);resize?.disconnect();previewResize?.disconnect();controls?.dispose();previewControls?.dispose();cleanups.forEach(fn=>fn());clearArrows();marker.dispose();batches.forEach(b=>b.mesh.dispose());geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());environment?.dispose();renderer?.dispose();previewRenderer?.dispose();renderer?.domElement.remove();previewRenderer?.domElement.remove();mount?.dispose();road.geometry.dispose();(road.material as T.Material).dispose();wake.current=null;apply.current=null;api.current=null};
+  start();return()=>{disposed=true;worker?.terminate();if(raf)cancelAnimationFrame(raf);resize?.disconnect();previewResize?.disconnect();controls?.dispose();previewControls?.dispose();cleanups.forEach(fn=>fn());clearArrows();marker.dispose();batches.forEach(b=>b.mesh.dispose());geometries.forEach(g=>g.dispose());mats.forEach(m=>m.dispose());environment?.dispose();renderer?.dispose();previewRenderer?.dispose();renderer?.domElement.remove();previewRenderer?.domElement.remove();mount?.dispose();road?.dispose();wake.current=null;apply.current=null;api.current=null};
  },[]);
  return <><div className="canvas-host" ref={host}/>{status&&<div className="loading-state" role="status">{!error&&<span className="loading-dot"/>}<span>{status}</span>{error&&<button onClick={()=>location.reload()}>Tải lại</button>}</div>}</>;
 });export default Scene;
