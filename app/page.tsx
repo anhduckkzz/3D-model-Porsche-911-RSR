@@ -8,6 +8,8 @@ import {Dialog,DialogContent,DialogTitle,DialogDescription} from '@/components/u
 import {Tooltip,TooltipContent,TooltipProvider,TooltipTrigger} from '@/components/ui/tooltip';
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue} from '@/components/ui/select';
 import DriveConsole from './drive-console';
+import AdvancedPanel from './advanced-panel';
+import type {VehicleState} from './vehicle-link';
 import {assemblyFrame,assemblyLabel} from './assembly-guide';
 import Scene,{type SceneHandle} from './scene';
 import type {ModelData,ViewerMode} from './model-types';
@@ -17,6 +19,9 @@ const partName=(name:string)=>name.replace(/^42096 - /,'').replace(/\.(dat|ldr)$
 
 export default function Home(){
  const [data,setData]=useState<ModelData|null>(null),[mode,setMode]=useState<ViewerMode>('explore'),[step,setStep]=useState(1),[explode,setExplode]=useState(0),[group,setGroup]=useState('all'),[selected,setSelected]=useState<number|null>(null),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState('1'),[replay,setReplay]=useState(0),[followStep,setFollowStep]=useState(true),[info,setInfo]=useState(false),[groupsOpen,setGroupsOpen]=useState(false);
+ const [drive,setDrive]=useState<VehicleState>({connected:false,armed:false,fb:0,lr:0,message:''});
+ const [mountStep,setMountStep]=useState(4),[mountContext,setMountContext]=useState(false),[mountExplode,setMountExplode]=useState(false);
+ const onDrive=useCallback((s:VehicleState)=>setDrive(p=>p.connected===s.connected&&p.armed===s.armed&&p.fb===s.fb&&p.lr===s.lr?p:s),[]);
  const [treeOpen,setTreeOpen]=useState(false);
  const [bench,setBench]=useState(true),[split,setSplit]=useState(.5),[returnSteps,setReturnSteps]=useState<number[]>([]);
  const scene=useRef<SceneHandle>(null),previewHost=useRef<HTMLDivElement>(null),main=useRef<HTMLElement>(null);
@@ -35,10 +40,10 @@ export default function Home(){
  const reset=()=>{setExplode(0);setGroup('all');setSelected(null);scene.current?.view('iso')};
  const selectPart=useCallback((id:number|null)=>{setSelected(id);setPlaying(false)},[]);
  return <TooltipProvider delayDuration={300}><Tabs value={mode} onValueChange={selectMode}><main className={`workbench ${mode}-mode`} ref={main}>
-  <Scene ref={scene} step={step} explode={explode} group={group} selected={selected} mode={mode} replay={replay} followStep={followStep} bench={bench} onExplosionSplit={setSplit} onReady={onReady} onSelect={selectPart} previewHost={previewHost}/>
+  <Scene drive={drive} mountStep={mountStep} mountContext={mountContext} mountExplode={mountExplode} ref={scene} step={step} explode={explode} group={group} selected={selected} mode={mode} replay={replay} followStep={followStep} bench={bench} onExplosionSplit={setSplit} onReady={onReady} onSelect={selectPart} previewHost={previewHost}/>
   <header className="topbar">
    <div className="identity"><span className="product-name">Porsche 911 RSR</span><span className="set-number">Technic / 42096</span></div>
-   <TabsList className="mode-switch" aria-label="Chế độ xem"><TabsTrigger value="explore">Khám phá</TabsTrigger><TabsTrigger value="build">Lắp ráp</TabsTrigger><TabsTrigger value="drive">Điều khiển</TabsTrigger></TabsList>
+   <TabsList className="mode-switch" aria-label="Chế độ xem"><TabsTrigger value="explore">Khám phá</TabsTrigger><TabsTrigger value="build">Lắp ráp</TabsTrigger><TabsTrigger value="drive">Điều khiển</TabsTrigger><TabsTrigger value="advanced">Advanced</TabsTrigger></TabsList>
    <div className="header-actions"><IconButton label="Khôi phục góc nhìn" onClick={reset}><RotateCcw/></IconButton><IconButton label="Thông tin mô hình" onClick={()=>setInfo(true)}><Info/></IconButton></div>
   </header>
   {mode==='explore'&&<div className="scene-tools">
@@ -52,15 +57,16 @@ export default function Home(){
    <div className="assembly-context"><button className={bench?'active':''} onClick={()=>setBench(true)}>Bàn lắp cụm</button><button className={!bench?'active':''} onClick={()=>setBench(false)}>Vị trí trên xe</button></div>
    {!!returnSteps.length&&<button className="return-assembly" onClick={()=>{setPlaying(false);changeStep(returnSteps[returnSteps.length-1]);setReturnSteps(stack=>stack.slice(0,-1))}}>Quay lại bước ghép cụm <ChevronRight size={13}/></button>}
   </div>}
-  {mode==='drive'&&<DriveConsole/>}
-  <div className="view-tools"><IconButton label="Vừa khung hình" onClick={()=>scene.current?.fit()}><Maximize2/></IconButton><IconButton label="Nhìn từ trên" disabled={mode==='explore'&&explode>0} onClick={()=>scene.current?.view('top')}><Layers/></IconButton><IconButton label="Góc nhìn 3D" onClick={()=>scene.current?.view('iso')}><Scan/></IconButton></div>
-  {mode!=='drive'&&(mode==='build'||part)&&<aside className={`guide ${mode==='build'?'build-guide':'part-guide'}`} aria-label={mode==='build'?'Hướng dẫn lắp ráp 3D':'Chi tiết đã chọn'}>
+  {mode==='drive'&&<DriveConsole onState={onDrive}/>}
+  {mode==='advanced'&&<AdvancedPanel step={mountStep} onStep={setMountStep} context={mountContext} onContext={setMountContext} exploded={mountExplode} onExploded={setMountExplode}/>}
+  {mode!=='drive'&&<div className="view-tools"><IconButton label="Vừa khung hình" onClick={()=>scene.current?.fit()}><Maximize2/></IconButton><IconButton label="Nhìn từ trên" disabled={mode==='explore'&&explode>0} onClick={()=>scene.current?.view('top')}><Layers/></IconButton><IconButton label="Góc nhìn 3D" onClick={()=>scene.current?.view('iso')}><Scan/></IconButton></div>}
+  {(mode==='explore'||mode==='build')&&(mode==='build'||part)&&<aside className={`guide ${mode==='build'?'build-guide':'part-guide'}`} aria-label={mode==='build'?'Hướng dẫn lắp ráp 3D':'Chi tiết đã chọn'}>
    <div className="guide-heading"><div><div className="small-label">{mode==='build'?`Thao tác ${frame?.localStep??1} / ${frame?.localCount??1}`:'Chi tiết đã chọn'}</div><h2>{mode==='build'?(frame&&data?assemblyLabel(frame.node,data):'Lắp ráp'):geometry?partName(geometry.name):''}</h2></div>{part&&<IconButton label="Bỏ chọn mảnh" onClick={()=>setSelected(null)}><X/></IconButton>}</div>
    <div className="parts-preview" ref={previewHost}/>
    {mode==='build'?<><div className="parts-caption"><span>{frame?.event.kind==='attach'?'Cụm đã chuẩn bị':'Mảnh cần dùng'}</span><span>{currentStep?.parts.length??0} mảnh</span></div><div className="parts-list">{frame?.event.kind!=='attach'&&items.map(item=><button key={item.geo} className="part-row" title={item.info.description} onClick={()=>{const id=currentStep?.parts.find(id=>data!.parts[id].geo===item.geo);if(id!==undefined){setSelected(id);setPlaying(false)}}}><span className="swatch" style={{background:item.info.colorHex}}/><span>{partName(item.info.name)}</span><span>×{item.quantity}</span></button>)}</div>{frame?.event.kind==='attach'&&data&&<button className="review-assembly" onClick={()=>{setPlaying(false);setReturnSteps(stack=>[...stack,step]);changeStep(data.assembly.nodes[frame.event.child!].start);setBench(true)}}>Xem cách lắp cụm này <ChevronRight size={14}/></button>}<div className="guide-actions"><button className="text-button" onClick={()=>{setPlaying(false);setReplay(r=>r+1)}}><RotateCcw size={14}/> Phát lại bước này</button><IconButton label="Camera tự theo bước" active={followStep} onClick={()=>setFollowStep(s=>!s)}><Focus/></IconButton></div><div className="guide-hint"><span className="new-piece-dot"/> {frame?.event.kind==='attach'?'Ghép nguyên cụm màu cam':'Lắp mảnh màu cam vào phần đang có'}</div>{frame&&frame.node.parent!==null&&step===frame.node.end&&<button className="assembly-next" onClick={()=>{setPlaying(false);changeStep(step+1)}}>Cụm đã xong · Ghép vào cụm cha <ChevronRight size={14}/></button>}</>:<><p className="part-description">{geometry?.description}</p><div className="part-facts"><span>{data?.groups.find(g=>g.id===part?.group)?.label}</span><span>Bước {part?.step}</span></div></>}
    {part&&<div className="selection-actions"><span className="selected-part"><span className="selection-dot"/>{geometry?partName(geometry.name):''}</span><button className="text-button" onClick={()=>scene.current?.focus()}><Focus size={14}/> Xem gần</button></div>}
   </aside>}
-  {mode!=='drive'&&<div className={`bottom-area ${mode==='build'?'build-bottom':''}`}>
+  {(mode==='explore'||mode==='build')&&<div className={`bottom-area ${mode==='build'?'build-bottom':''}`}>
    {mode==='explore'?<div className="explosion-control"><div className="control-caption"><span>Tách chi tiết</span><span>{Math.round(explode*100)}%</span></div><Slider aria-label="Tách từ xe hoàn chỉnh đến trải toàn bộ mảnh" min={0} max={1} step={.005} value={[explode]} disabled={!data} onValueChange={v=>{setExplode(v[0]);setSelected(null)}}/><div className="explosion-stops"><button className={explode===0?'active':''} onClick={()=>setExplode(0)}>Hoàn chỉnh</button><button className={Math.abs(explode-split)<.01?'active':''} onClick={()=>setExplode(split)}>Tách cụm</button><button className={explode===1?'active':''} onClick={()=>setExplode(1)}>Toàn bộ mảnh</button></div></div>:<div className="build-control"><div className="build-toolbar"><div className="step-navigation"><IconButton label="Bước trước" disabled={step<=1||!data} onClick={()=>{setPlaying(false);changeStep(step-1)}}><ChevronLeft/></IconButton><button className="play-button" aria-label={playing?'Tạm dừng':'Phát lắp ráp'} disabled={!data} onClick={play}>{playing?<Pause size={17}/>:<Play size={17} fill="currentColor"/>}</button><IconButton label="Bước tiếp" disabled={step>=maximum||!data} onClick={()=>{setPlaying(false);changeStep(step+1)}}><ChevronRight/></IconButton></div><label className="step-entry"><span>Thao tác</span><input type="number" min={1} max={maximum} value={step} aria-label="Đến bước lắp ráp" onChange={e=>{const n=Number(e.target.value);if(Number.isInteger(n)&&n>=1&&n<=maximum){setPlaying(false);changeStep(n)}}}/><span>/ {maximum}</span></label><Select value={speed} onValueChange={setSpeed}><SelectTrigger className="speed-select" aria-label="Tốc độ lắp"><SelectValue/></SelectTrigger><SelectContent>{['0.5','1','1.5','2'].map(s=><SelectItem key={s} value={s}>{s}×</SelectItem>)}</SelectContent></Select></div><Slider min={1} max={maximum} step={1} value={[step]} disabled={!data} aria-label="Tiến độ lắp ráp 3D" onValueChange={v=>{setPlaying(false);changeStep(v[0])}}/></div>}
    <p className="interaction-hint">{mode==='explore'&&explode>0?'Kéo để di chuyển · Cuộn để zoom · Chạm để chọn mảnh':'Kéo để xoay · Cuộn để zoom · Chạm để chọn mảnh'}</p>
   </div>}
