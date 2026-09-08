@@ -26,10 +26,9 @@ function beamQuaternion(direction:T.Vector3,bore:T.Vector3){
  const x=y.clone().cross(z).normalize();return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,z));
 }
 function pinQuaternion(axis:T.Vector3){return new T.Quaternion().setFromUnitVectors(X,axis.clone().normalize())}
-function crossBlockQuaternion(pinAxis:T.Vector3,verticalAxis=T.Vector3.prototype.clone.call(Y) as T.Vector3){
- // 6536 is used only as the real 90-degree interface between side-truss pins
- // and the vertical-bore bridge. Keep its long local Y axis upright and rotate
- // its transverse axis toward the truss pin.
+function crossBlockQuaternion(pinAxis:T.Vector3,verticalAxis:T.Vector3=Y.clone()){
+ // 6536 is the physical 90-degree axle/pin interface between the side truss
+ // and bridge. Its use is intentionally isolated to these direction changes.
  const y=verticalAxis.clone().normalize(),x=pinAxis.clone().addScaledVector(y,-pinAxis.dot(y)).normalize(),z=x.clone().cross(y).normalize();
  return new T.Quaternion().setFromRotationMatrix(new T.Matrix4().makeBasis(x,y,z));
 }
@@ -78,8 +77,6 @@ export function buildMountParts(install:MountInstallation){
   add('6536',1,node.connector,crossBlockQuaternion(X),'90-degree bridge adapter');
  }
 
- // Use one shared bridge height/longitudinal station. The resolver already
- // requires the two chassis rails to be symmetric and near-coplanar.
  const bridgeCenter=new T.Vector3().add(baseNodes[0].connector).add(baseNodes[1].connector).multiplyScalar(.5);
  const bridgeY=Math.max(baseNodes[0].connector.y,baseNodes[1].connector.y)+STUD;
  const bridgeZ=bridgeCenter.z,leftX=baseNodes[0].connector.x,rightX=baseNodes[1].connector.x;
@@ -95,22 +92,21 @@ export function buildMountParts(install:MountInstallation){
   pin('6558',2,new T.Vector3(rightX,bridgeY+STUD/2,z),Y,'right bridge pin');
  }
 
- // 04 — two 19-stud composite ledges: a stock 15L beam plus 5L end pieces
- // overlapping three holes in a second layer. This supports a 156 mm Aris
- // without scaling a LEGO mould. Short vertical stops leave the camera corner
- // open; the final retention is an explicitly non-LEGO elastic strap.
+ // 04 — 23-stud cradle: stock 15L spine + stock 7L end pieces. Each 7L
+ // extension overlaps the spine by three holes in the neighboring layer, so
+ // the 156.55 mm Aris has real side clearance without stretching any mould.
  const cradleX=(leftX+rightX)/2,ledgeY=bridgeY+STUD*2.25;
  for(const z of [sideRearZ,sideFrontZ]){
   beam('32278',3,new T.Vector3(cradleX-1.4,ledgeY,z),new T.Vector3(cradleX+1.4,ledgeY,z),Y,'15L cradle spine');
   for(const side of [-1,1]){
-   const cx=cradleX+side*1.4;
-   beam('32316',3,new T.Vector3(cx-side*.4,ledgeY+STUD,z),new T.Vector3(cx+side*.4,ledgeY+STUD,z),Y,'5L cradle extension');
+   const cx=cradleX+side*1.6;
+   beam('32524',3,new T.Vector3(cx-side*.6,ledgeY+STUD,z),new T.Vector3(cx+side*.6,ledgeY+STUD,z),Y,'7L cradle extension');
    for(const px of [cradleX+side*1.0,cradleX+side*1.2,cradleX+side*1.4])pin('2780',3,new T.Vector3(px,ledgeY+STUD/2,z),Y,'cradle lap pin');
   }
  }
  const phoneZ=bridgeZ+.02,stopBottom=ledgeY+STUD;
  for(const side of [-1,1]){
-  const x=cradleX+side*1.8;
+  const x=cradleX+side*2.2;
   add('6536',3,new T.Vector3(x,stopBottom,phoneZ-.18),crossBlockQuaternion(Z),'side-stop adapter');
   beam('32316',3,new T.Vector3(x,stopBottom,phoneZ-.18),new T.Vector3(x,stopBottom+.8,phoneZ-.18),Z,'low side stop 5L');
  }
