@@ -58,7 +58,7 @@ export default function Home(){
    {!!returnSteps.length&&<button className="return-assembly" onClick={()=>{setPlaying(false);changeStep(returnSteps[returnSteps.length-1]);setReturnSteps(stack=>stack.slice(0,-1))}}>Quay lại bước ghép cụm <ChevronRight size={13}/></button>}
   </div>}
   {mode==='drive'&&<DriveConsole onState={onDrive}/>}
-  {mode==='advanced'&&<AdvancedPanel step={mountStep} onStep={setMountStep} context={mountContext} onContext={setMountContext} exploded={mountExplode} onExploded={setMountExplode}/>}
+  {mode==='advanced'&&<AdvancedPanel data={data} step={mountStep} onStep={setMountStep} context={mountContext} onContext={setMountContext} exploded={mountExplode} onExploded={setMountExplode}/>}
   {mode!=='drive'&&<div className="view-tools"><IconButton label="Vừa khung hình" onClick={()=>scene.current?.fit()}><Maximize2/></IconButton><IconButton label="Nhìn từ trên" disabled={mode==='explore'&&explode>0} onClick={()=>scene.current?.view('top')}><Layers/></IconButton><IconButton label="Góc nhìn 3D" onClick={()=>scene.current?.view('iso')}><Scan/></IconButton></div>}
   {(mode==='explore'||mode==='build')&&(mode==='build'||part)&&<aside className={`guide ${mode==='build'?'build-guide':'part-guide'}`} aria-label={mode==='build'?'Hướng dẫn lắp ráp 3D':'Chi tiết đã chọn'}>
    <div className="guide-heading"><div><div className="small-label">{mode==='build'?`Thao tác ${frame?.localStep??1} / ${frame?.localCount??1}`:'Chi tiết đã chọn'}</div><h2>{mode==='build'?(frame&&data?assemblyLabel(frame.node,data):'Lắp ráp'):geometry?partName(geometry.name):''}</h2></div>{part&&<IconButton label="Bỏ chọn mảnh" onClick={()=>setSelected(null)}><X/></IconButton>}</div>

@@ -29,6 +29,11 @@ function nearestCross(span:number){return CROSS_BEAMS.map(b=>({...b,error:Math.a
 export function resolvePhoneMountInstallation(model:ModelData):MountInstallation|null{
  const front=groupCenter(model,'front'),rear=groupCenter(model,'rear');if(!front||!rear)return null;
  const forward=front.clone().sub(rear);forward.y=0;if(forward.lengthSq()<1e-6)return null;forward.normalize();
+ // Derive the frame from authored longitudinal beams, not the asymmetric
+ // centroids of front/rear decorations (which introduce artificial yaw).
+ const railDirection=new T.Vector3();
+ for(const p of model.parts){if(p.group!=='chassis'||!STRAIGHT_BEAMS[codeOf(model,p)])continue;const d=transformedAxis(p,new T.Vector3(0,0,1));d.y=0;if(d.lengthSq()<.9)continue;d.normalize();const sign=d.dot(forward);if(Math.abs(sign)>.99)railDirection.addScaledVector(d,Math.sign(sign))}
+ if(railDirection.lengthSq()>.1)forward.copy(railDirection).normalize();
  const right=new T.Vector3(forward.z,0,-forward.x).normalize(),up=new T.Vector3(0,1,0);
  const origins=model.parts.map(partOrigin),center=origins.reduce((a,b)=>a.add(b),new T.Vector3()).multiplyScalar(1/Math.max(1,origins.length));
  const longitudinalRange=range(origins.map(p=>p.clone().sub(center).dot(forward))),lateralRange=range(origins.map(p=>p.clone().sub(center).dot(right)));
@@ -43,6 +48,8 @@ export function resolvePhoneMountInstallation(model:ModelData):MountInstallation
   if(axisScore<.9||boreScore<.85)continue;
   for(let i=0;i+BASE_INTERVALS<holes;i++){
    const a=holeWorld(part,i,holes),b=holeWorld(part,i+BASE_INTERVALS,holes),mid=a.clone().add(b).multiplyScalar(.5),d=mid.clone().sub(center);
+   const occupied=(point:T.Vector3)=>model.parts.some(p=>{if(!/Pin |Axle /i.test(model.geometries[p.geo].description))return false;const delta=partOrigin(p).sub(point),along=delta.dot(bore);return Math.abs(along)<.4&&delta.addScaledVector(bore,-along).length()<.06});
+   if(occupied(a)||occupied(b))continue;
    const lateral=d.dot(right),longitudinal=d.dot(forward),height=mid.y;
    if(Math.abs(lateral)<carWidth*.1||Math.abs(lateral)>carWidth*.48)continue;
    raw.push({part,code,holes,side:lateral<0?-1:1,a,b,mid,longitudinal,lateral,height,axisScore,boreScore});
@@ -56,10 +63,10 @@ export function resolvePhoneMountInstallation(model:ModelData):MountInstallation
   const dz=Math.abs(left.longitudinal-rightRail.longitudinal),dy=Math.abs(left.height-rightRail.height);
   // The cross bridge is a rigid stock beam: the two selected rails must already
   // be essentially coplanar and at the same longitudinal station.
-  if(dz>.12||dy>.12)continue;
+  if(dz>.003||dy>.003)continue;
   const rawSep=Math.abs(rightRail.lateral-left.lateral);if(rawSep<carWidth*.22||rawSep>carWidth*.8)continue;
   for(const mode of [-1,1] as const){
-   const span=rawSep+mode*2*LAYER,cross=nearestCross(span);if(cross.error>.055)continue;
+   const span=rawSep+mode*2*LAYER,cross=nearestCross(span);if(cross.error>.003)continue;
    const symmetry=Math.abs(left.lateral+rightRail.lateral)/carWidth;
    const longitudinal=Math.abs((left.longitudinal+rightRail.longitudinal)/2-targetLong)/carLength;
    const targetHeight=Math.abs((left.height+rightRail.height)/2-highTarget)/Math.max(.2,carLength*.2);

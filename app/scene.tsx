@@ -5,6 +5,7 @@ import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
 import {RoomEnvironment} from 'three/addons/environments/RoomEnvironment.js';
 import {createFlatLayout,groupOffsets,sampleLegacyExplosion,advanceExplosion,insertionOffset,type PiecePose,FLAT_ROTATION} from './explosion-layout';
 import {assemblyFrame} from './assembly-guide';
+import {advanceDrive,restingDrive} from './drive-motion';
 import {createPhoneMount} from './phone-mount';
 import type {VehicleState} from './vehicle-link';
 import type {ModelData,Part,ViewerMode} from './model-types';
@@ -30,6 +31,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   const scene=new T.Scene(),camera=new T.OrthographicCamera(-10,10,10,-10,.01,2000),previewScene=new T.Scene(),previewCamera=new T.OrthographicCamera(-3,3,3,-3,.01,100);
   let previewRenderer:T.WebGLRenderer|undefined,previewControls:OrbitControls|undefined,previewKey='',previewDirty=true;
   const vehicle=new T.Group();scene.add(vehicle);let mount:ReturnType<typeof createPhoneMount>|undefined,driveMount:ReturnType<typeof createPhoneMount>|undefined;
+  const drivetrain=restingDrive();let wheelRadius=.86,wheelbase=6.4,roadHeight=-2.08;
   const road=new T.GridHelper(24,24,0xb4c4ce,0xd9e1e6);road.position.y=-2.08;road.visible=false;scene.add(road);
   let roadOffset=0,driveYaw=0,wheelAngle=0;
   const driveForward=new T.Vector3(0,0,1),driveRight=new T.Vector3(1,0,0),driveCamera=new T.Vector3(0,.48,-1).normalize();
@@ -98,13 +100,13 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const modeChanged=s.mode!==lastMode,contextChanged=s.bench!==lastBench;const enteringBuild=s.mode==='build'&&lastMode!=='build';const animateBuild=s.mode==='build'&&(s.step!==lastStep||s.replay!==lastReplay||enteringBuild);
    lastKey=key;lastMode=s.mode;lastStep=s.step;lastReplay=s.replay;lastBench=s.bench;
    road.visible=s.mode==='drive';
-   mount!.root.visible=s.mode==='advanced';mount!.update(s.mountStep,s.mountExplode);
-   driveMount!.root.visible=s.mode==='drive';driveMount!.update(4,false);driveMount!.setAids(false);
+   mount!.root.visible=s.mode==='advanced';mount!.update(s.mountStep,s.mountExplode);mount!.setContext(s.mountContext);
+   driveMount!.root.visible=s.mode==='drive'&&!!driveMount!.audit?.ok;driveMount!.update(4,false);driveMount!.setAids(false);
    vehicle.visible=s.mode!=='advanced'||s.mountContext;
-   if(s.mode!=='drive'){vehicle.position.set(0,0,0);vehicle.rotation.set(0,0,0);driveYaw=0;roadOffset=0;road.position.x=0;road.position.z=0}
+   if(s.mode!=='drive'){vehicle.position.set(0,0,0);vehicle.rotation.set(0,0,0);driveYaw=0;roadOffset=0;Object.assign(drivetrain,restingDrive());road.rotation.y=0;road.position.x=0;road.position.z=0}
    if(controls)controls.enabled=s.mode!=='drive';
    const previousVisible=new Set(slots.keys());buildFrame=s.mode==='build'?assemblyFrame(model.assembly,s.step):undefined;
-   visible=model.parts.filter(p=>buildFrame?(buildFrame.visible.has(p.id)||(!s.bench&&buildFrame.context.has(p.id))):(s.group==='all'||p.group===s.group));
+   visible=model.parts.filter(p=>(s.mode!=='advanced'||!s.mountContext||['chassis','suspension','engine','wheels'].includes(p.group))).filter(p=>buildFrame?(buildFrame.visible.has(p.id)||(!s.bench&&buildFrame.context.has(p.id))):(s.group==='all'||p.group===s.group));
    destinations=base.map(clonePose);
    if(s.mode==='explore'){
     const nextKey=s.group+':'+availableAspect().toFixed(3);
@@ -135,33 +137,25 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const ds=latest.current.drive,driving=latest.current.mode==='drive';
    let driveMoving=false;
    if(driving){
-    const active=ds.connected&&ds.armed,speed=active?ds.fb/100:0,steer=active?ds.lr/100:0;
-    const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
-    const blend=1-Math.exp(-Math.min(delta||16,50)/120),targetYaw=steer*.055;
-    driveYaw=reduced?0:T.MathUtils.lerp(driveYaw,targetYaw,blend);
-    vehicle.rotation.y=driveYaw;
-    if(!reduced&&speed){
-     wheelAngle+=speed*Math.min(delta||16,50)*.012;
-     roadOffset=(roadOffset-speed*Math.min(delta||16,50)*.006)%1;
-     road.position.x=-driveForward.x*roadOffset;road.position.z=-driveForward.z*roadOffset;
-     vehicle.position.y=Math.sin(wheelAngle*1.7)*.008*Math.min(1,Math.abs(speed));
-    }else vehicle.position.y=T.MathUtils.lerp(vehicle.position.y,0,blend);
-
-    // Animate only actual wheel-family LDraw parts. Front wheel parts receive a
-    // steering quaternion first, then roll around the steered axle. The rest of
-    // the car stays in its authored transform; no fake whole-car translation.
-    if(!reduced&&driveWheels.length){
-     const steerQ=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),steer*.34);
-     for(const p of driveWheels){
-      const ps=clonePose(base[p.id]),isFront=frontWheelIds.has(p.id);
-      const axle=isFront?driveRight.clone().applyQuaternion(steerQ):driveRight;
-      if(isFront)ps.quaternion.premultiply(steerQ);
-      ps.quaternion.premultiply(new T.Quaternion().setFromAxisAngle(axle,-wheelAngle));
-      write(p,ps);
-     }
+    const active=ds.connected&&ds.armed,reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const dt=Math.min(delta||16,50)/1000;
+    driveMoving=advanceDrive(drivetrain,ds.fb,ds.lr,dt,wheelRadius,wheelbase,active&&!reduced);
+    if(!active||reduced){drivetrain.speed=0;drivetrain.steer=0;driveMoving=false}
+    // Chase camera holds the chassis steady. Only wheels steer at rest.
+    vehicle.rotation.set(0,0,0);vehicle.position.set(0,0,0);
+    roadOffset=drivetrain.distance%1;road.rotation.y=-drivetrain.heading;
+    road.position.copy(driveForward).multiplyScalar(-roadOffset);road.position.y=roadHeight;
+    const steerQ=new T.Quaternion().setFromAxisAngle(new T.Vector3(0,1,0),drivetrain.steer);
+    const rollQ=new T.Quaternion().setFromAxisAngle(driveRight,drivetrain.roll);
+    for(const p of driveWheels){
+     const ps=clonePose(base[p.id]);ps.quaternion.premultiply(rollQ);
+     if(frontWheelIds.has(p.id))ps.quaternion.premultiply(steerQ);
+     write(p,ps);
     }
-    driveMoving=Math.abs(speed)>.0001||Math.abs(steer)>.0001||Math.abs(driveYaw-targetYaw)>.0005||Math.abs(vehicle.position.y)>.0005;
-    if(reduced)driveMoving=false;dirty=true;
+    // Refresh culling bounds only for the wheel batches (eight instances).
+    const changed=new Set<Batch>();for(const p of driveWheels){const slot=slots.get(p.id);if(slot)changed.add(slot.batch)}
+    for(const b of changed)b.mesh.computeBoundingSphere();
+    dirty=true;
    }
    const exploring=latest.current.mode==='explore'&&Math.abs(amount-explosionTarget)>1e-7;
    if(exploring){
@@ -196,12 +190,12 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const frontParts=model.parts.filter(p=>p.group==='front'),rearParts=model.parts.filter(p=>p.group==='rear');
    if(frontParts.length&&rearParts.length){const a=boundsFor(frontParts,base).getCenter(new T.Vector3()),b=boundsFor(rearParts,base).getCenter(new T.Vector3());driveForward.copy(a.sub(b));driveForward.y=0;if(driveForward.lengthSq()<.01)driveForward.set(0,0,1);else driveForward.normalize()}
    driveRight.set(driveForward.z,0,-driveForward.x).normalize();driveCamera.copy(driveForward).multiplyScalar(-1).add(new T.Vector3(0,.5,0)).normalize();
-   const install=carCenter.clone().addScaledVector(driveForward,-carSize.z*.04),chassisY=allBounds.min.y+carSize.y*.22;
-   driveMount.root.position.set(install.x,chassisY-.2,install.z);driveMount.root.rotation.y=Math.atan2(driveForward.x,driveForward.z);driveMount.root.updateMatrixWorld(true);
-   road.position.y=allBounds.min.y-.025;
+   roadHeight=allBounds.min.y-.012;road.position.y=roadHeight;
    const wheelCode=/(56908|15038|56145|44777|44771|6595)\.dat$/i;
    driveWheels=model.parts.filter(p=>p.group==='wheels'&&wheelCode.test(model.geometries[p.geo].name));
    frontWheelIds=new Set(driveWheels.filter(p=>base[p.id].position.clone().sub(carCenter).dot(driveForward)>0).map(p=>p.id));
+   const tire=driveWheels.find(p=>model.geometries[p.geo].name==='44771.dat');if(tire){const bounds=geometries[tire.geo].boundingBox!;wheelRadius=Math.max(bounds.max.x-bounds.min.x,bounds.max.y-bounds.min.y)*.005}
+   const frontAxle=driveWheels.filter(p=>frontWheelIds.has(p.id)),rearAxle=driveWheels.filter(p=>!frontWheelIds.has(p.id));if(frontAxle.length&&rearAxle.length)wheelbase=Math.abs(base[frontAxle[0].id].position.clone().sub(base[rearAxle[0].id].position).dot(driveForward));
 
    for(const [geo,parts] of byGeo){const styles=new T.InstancedBufferAttribute(new Float32Array(parts.length),1);styles.setUsage(T.DynamicDrawUsage);geometries[geo].setAttribute('pieceStyle',styles);const mesh=new T.InstancedMesh(geometries[geo],material,parts.length);mesh.instanceMatrix.setUsage(T.DynamicDrawUsage);mesh.count=0;vehicle.add(mesh);batches.push({mesh,parts,ids:[],styles})}
    ready=true;apply.current=updateState;api.current={fit:()=>autoFit(),view:v=>{if(latest.current.mode==='drive')return;const direction=flat?new T.Vector3(0,0,1):v==='top'?new T.Vector3(0,1,.001).normalize():v==='side'?new T.Vector3(1,.1,0).normalize():ISO;const bounds=latest.current.mode==='advanced'?new T.Box3().setFromObject(mount!.root):boundsFor(visible);if(latest.current.mode==='advanced'&&latest.current.mountContext)bounds.union(boundsFor(visible));fitBounds(bounds,direction)},focus:()=>{const p=model.parts[latest.current.selected??-1];if(p&&slots.has(p.id))fitBounds(boundsFor([p],current).expandByScalar(.15),flat?new T.Vector3(0,0,1):ISO)}};

@@ -1,4 +1,5 @@
 import * as T from 'three';
+import {auditPhoneMount} from './phone-mount-audit';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import type {ModelData} from './model-types';
 import {resolvePhoneMountInstallation,type MountInstallation} from './phone-mount-install';
@@ -21,6 +22,7 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  const rubber=mat(0x202326,{roughness:.82,metalness:0,transparent:true,opacity:.9});
  const aidMaterial=new T.MeshBasicMaterial({color:0x2f78a2,transparent:true,opacity:.88,depthTest:false});materials.push(aidMaterial);
  const plan=install?buildMountParts(install):null,parts=plan?.parts??[];
+ const audit=install?auditPhoneMount(model,install,parts):null;
  const scale=new T.Vector3(.01,.01,.01),matrix=new T.Matrix4();
 
  for(let stage=0;stage<4;stage++)for(const [code,spec] of Object.entries(mountCatalog)){
@@ -42,7 +44,8 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  function box(size:[number,number,number],pos:[number,number,number],material:T.Material,parent:T.Object3D=phoneGroup){const g=new T.BoxGeometry(...size);geometries.push(g);const mesh=new T.Mesh(g,material);mesh.position.fromArray(pos);parent.add(mesh);return mesh}
  const fallback=box([156.55*.025,76.175*.025,10.71*.025],[0,0,0],phoneFallback);fallback.name='Vsmart Aris loading fallback';
  // Retention is a real-world elastic strap, deliberately not disguised as LEGO.
- const strap=box([.24,1.98,.32],[0,-.02,0],rubber);strap.name='Elastic retention strap (non-LEGO accessory)';
+ for(const z of [-.157,.157])box([.24,1.94,.018],[0,0,z],rubber).name='External retention strap face';
+ for(const y of [-.97,.97])box([.24,.018,.332],[0,y,0],rubber).name='External retention strap return';
  const phoneAsset=new T.Group();phoneAsset.name='Vsmart Aris supplied GLB';phoneGroup.add(phoneAsset);
  let cancelled=false;
  new GLTFLoader().load(PHONE_MODEL,gltf=>{
@@ -58,18 +61,14 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  corners.forEach((p,i)=>lines.push(...eye.toArray(),...p.toArray(),...p.toArray(),...corners[(i+1)%4].toArray()));
  const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.42});materials.push(fm);cameraAids.add(new T.LineSegments(fg,fm));
 
- // scene.tsx historically applies an approximate driveMount root transform.
- // Compensate it here so the visible assembly is always locked to the exact
- // resolver frame. root * assembly = installationFrame in model coordinates.
- const desired=new T.Matrix4();if(install)desired.compose(new T.Vector3(...install.origin),new T.Quaternion(...install.rotation),new T.Vector3(1,1,1));
- function syncInstallation(){
-  if(!install)return;root.updateMatrix();const local=root.matrix.clone().invert().multiply(desired);local.decompose(assembly.position,assembly.quaternion,assembly.scale);assembly.updateMatrix();assembly.updateMatrixWorld(true);
- }
- root.onBeforeRender=()=>syncInstallation();syncInstallation();
+ // A single installation frame; no guessed root offset or render-time compensation.
+ if(install){root.position.fromArray(install.origin);root.quaternion.fromArray(install.rotation)}
+ function syncInstallation(){root.updateMatrixWorld(true)}
  return {
-  root,resolved:!!install,installation:install,inventory:mountInventory(parts),
+  root,audit,resolved:!!install,installation:install,inventory:mountInventory(parts),
   update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=exploded?i*.82:0});syncInstallation();root.updateMatrixWorld(true)},
   setAids(visible:boolean){cameraAids.visible=visible;hardpointAids.visible=visible},
+  setContext(context:boolean){const show=!context||!!audit?.ok;instances.forEach(m=>m.visible=show);phoneGroup.visible=show&&!!plan;cameraAids.visible=show},
   setInstalled(_installed:boolean){syncInstallation()},
   dispose(){cancelled=true;root.onBeforeRender=()=>{};instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());importedGeometries.forEach(g=>g.dispose());importedMaterials.forEach(m=>m.dispose());importedTextures.forEach(t=>t.dispose())}
  };
