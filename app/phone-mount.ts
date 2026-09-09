@@ -3,14 +3,14 @@ import {auditPhoneMount} from './phone-mount-audit';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import type {ModelData} from './model-types';
 import {resolvePhoneMountInstallation,type MountInstallation} from './phone-mount-install';
-import {buildMountParts,mountCatalog,mountInventory,phoneEnvelope} from './phone-mount-parts';
+import {buildMountParts,mountCatalog,mountInventory} from './phone-mount-parts';
 
 const PHONE_MODEL='/model/vsmart-aris-xam-nhat-thuc.glb',Z=new T.Vector3(0,0,1);
 
 /**
- * Low roll-cage camera bridge. LEGO geometry is always an original LDraw mesh
- * at uniform 0.01 scale. The installation frame comes from real chassis beam
- * holes in model.json, never from a guessed whole-rig xyz.
+ * Pure-LEGO low camera bridge.  Every structural/retaining member comes from a
+ * stock LDraw mould at uniform 0.01 scale; the phone is the supplied Aris GLB.
+ * No hidden foam, elastic, clip box or render-only support is added.
  */
 export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeometry[],installation?:MountInstallation|null){
  const install=installation===undefined?resolvePhoneMountInstallation(model):installation;
@@ -19,13 +19,14 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  const importedGeometries=new Set<T.BufferGeometry>(),importedMaterials=new Set<T.Material>(),importedTextures=new Set<T.Texture>();
  const mat=(color:number,options:Partial<T.MeshStandardMaterialParameters>={})=>{const m=new T.MeshStandardMaterial({color,roughness:.3,...options});materials.push(m);return m};
  const plastic=mat(0xffffff,{vertexColors:true,metalness:.03,side:T.DoubleSide}),phoneFallback=mat(0x59636a,{metalness:.28,roughness:.28});
- const rubber=mat(0x202326,{roughness:.82,metalness:0,transparent:true,opacity:.9});
  const aidMaterial=new T.MeshBasicMaterial({color:0x2f78a2,transparent:true,opacity:.88,depthTest:false});materials.push(aidMaterial);
  const plan=install?buildMountParts(install):null,parts=plan?.parts??[];
  const audit=install?auditPhoneMount(model,install,parts):null;
  const scale=new T.Vector3(.01,.01,.01),matrix=new T.Matrix4();
 
- for(let stage=0;stage<4;stage++)for(const [code,spec] of Object.entries(mountCatalog)){
+ // Stage 05 contains real LEGO yoke parts as well as the handset, so render all
+ // five mechanical stages rather than treating the last stage as accessories.
+ for(let stage=0;stage<5;stage++)for(const [code,spec] of Object.entries(mountCatalog)){
   const entries=parts.filter(p=>p.stage===stage&&p.code===code);if(!entries.length)continue;
   const geo=model.geometries.findIndex(g=>g.name===code+'.dat'&&g.colorHex===spec.color);
   if(geo<0||!sourceGeometries[geo])throw new Error('Thiếu asset LDraw '+code+'.dat');
@@ -34,7 +35,7 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
   mesh.computeBoundingSphere();stages[stage].add(mesh);instances.push(mesh);
  }
 
- // Step 01 exposes the exact authored chassis holes selected by the resolver.
+ // Step 01 exposes the exact intact-chassis holes selected by the resolver.
  // Rings are inspection aids only and disappear on the Drive installation.
  const hardpointAids=new T.Group();stages[0].add(hardpointAids);
  if(install)for(const anchor of install.anchors){const g=new T.TorusGeometry(.105,.017,8,24);geometries.push(g);const ring=new T.Mesh(g,aidMaterial);ring.position.fromArray(anchor.local);ring.rotation.y=Math.PI/2;ring.renderOrder=8;ring.userData={anchor:true,partId:anchor.partId,hole:anchor.hole,code:anchor.code};hardpointAids.add(ring)}
@@ -43,20 +44,6 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  if(plan){phoneGroup.position.fromArray(plan.phonePose.position);phoneGroup.rotation.x=plan.phonePose.tilt}else phoneGroup.visible=false;
  function box(size:[number,number,number],pos:[number,number,number],material:T.Material,parent:T.Object3D=phoneGroup){const g=new T.BoxGeometry(...size);geometries.push(g);const mesh=new T.Mesh(g,material);mesh.position.fromArray(pos);parent.add(mesh);return mesh}
  const fallback=box([156.55*.025,76.175*.025,10.71*.025],[0,0,0],phoneFallback);fallback.name='Vsmart Aris loading fallback';
- // Non-LEGO accessories are kept distinct from the stock part inventory.
- // Side pads have supported contact near the front edge of the handset.
- if(plan){
-  for(const side of [-1,1])for(const y of [1.6,2.6])box([.15,.16,.07],[side*2.035,y,1.35],rubber,stages[3]).name='External EVA side pad · 6 mm';
-  for(const x of [-.9,.9])box([.4,.16,.025],[x,1.2,1.1125],rubber,stages[3]).name='External EVA back pad · 1 mm';
-  const e=phoneEnvelope,front=e.back+e.depth,top=e.bottom+e.height;
-  // Closed loops wrap both the handset and cross bridge, outside their envelope.
-  const path=[[.69,.69],[1.11,.69],[front+.012,e.bottom-.012],[front+.012,top+.012],[e.back-.012,top+.012],[.69,1.31]];
-  for(const x of [-.4,.4])for(let i=0;i<path.length;i++){
-   const [za,ya]=path[i],[zb,yb]=path[(i+1)%path.length],a=new T.Vector3(x,ya,za),b=new T.Vector3(x,yb,zb);
-   const strip=box([.16,a.distanceTo(b),.012],a.clone().add(b).multiplyScalar(.5).toArray() as [number,number,number],rubber,stages[4]);
-   strip.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),b.sub(a).normalize());strip.name='External elastic loop · handset to bridge';
-  }
- }
  const phoneAsset=new T.Group();phoneAsset.name='Vsmart Aris supplied GLB';phoneGroup.add(phoneAsset);
  let cancelled=false;
  new GLTFLoader().load(PHONE_MODEL,gltf=>{
@@ -72,7 +59,6 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  corners.forEach((p,i)=>lines.push(...eye.toArray(),...p.toArray(),...p.toArray(),...corners[(i+1)%4].toArray()));
  const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.42});materials.push(fm);cameraAids.add(new T.LineSegments(fg,fm));
 
- // A single installation frame; no guessed root offset or render-time compensation.
  if(install){root.position.fromArray(install.origin);root.quaternion.fromArray(install.rotation)}
  function syncInstallation(){root.updateMatrixWorld(true)}
  return {
