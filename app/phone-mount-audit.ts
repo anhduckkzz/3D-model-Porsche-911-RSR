@@ -2,19 +2,22 @@ import * as T from 'three';
 import type {ModelData} from './model-types';
 import type {MountInstallation} from './phone-mount-install';
 import type {MountPart} from './phone-mount-parts';
+
 const lengths:Record<string,number>={'32278':15,'41239':13,'32525':11,'40490':9,'32524':7,'32316':5,'18654':1};
 type Socket={point:T.Vector3;axis:T.Vector3;kind:'pin'|'axle';owner:string};
 export type MountAudit={ok:boolean;pinCount:number;unseatedPins:number;axleConflicts:number;unconnectedParts:number;occupiedAnchors:number;sharedSockets:number;issues:string[]};
-/** Socket mating check, not a solid collision or structural load solver.
- * Stock round bores and integrated 15100 pins are checked independently.
- * One socket cannot be claimed by two fasteners.
+
+/**
+ * Socket mating check, not a structural load solver.  Besides the connection
+ * graph, this revision requires the four rigid retention families used by the
+ * Aris cage: bottom ledges, backrest, left/right side constraints and top yoke.
  */
 export function auditPhoneMount(model:ModelData,install:MountInstallation,parts:ReadonlyArray<MountPart>):MountAudit{
  const claims=new Map<Socket,number>();const claim=(s:Socket)=>claims.set(s,(claims.get(s)??0)+1);
  const sockets:Socket[]=[],edges=new Map<string,Set<string>>();
  function socket(point:T.Vector3,axis:T.Vector3,kind:Socket['kind'],owner:string){sockets.push({point,axis,kind,owner})}
  parts.forEach((p,i)=>{const q=new T.Quaternion(...p.quaternion),pos=new T.Vector3(...p.position),owner='rig:'+i;
-  const put=(v:T.Vector3,a:T.Vector3,kind:Socket['kind'])=>socket(v.multiplyScalar(.01).applyQuaternion(q).add(pos),a.applyQuaternion(q),kind,owner);
+  const put=(point:T.Vector3,axis:T.Vector3,kind:Socket['kind'])=>socket(point.multiplyScalar(.01).applyQuaternion(q).add(pos),axis.applyQuaternion(q),kind,owner);
   if(lengths[p.code])for(let n=0;n<lengths[p.code];n++)put(new T.Vector3(0,0,(n-(lengths[p.code]-1)/2)*20),new T.Vector3(0,1,0),'pin');
   if(p.code==='15100')put(new T.Vector3(),new T.Vector3(0,1,0),'pin');
  });
@@ -42,9 +45,16 @@ export function auditPhoneMount(model:ModelData,install:MountInstallation,parts:
   const d=new T.Vector3(...p.matrix.slice(12,15)).sub(point),along=d.dot(axis);return Math.abs(along)<.4&&d.addScaledVector(axis,-along).length()<.06;
  })}).length;
  const sharedSockets=[...claims.values()].filter(n=>n>1).length;
- const issues=[];if(sharedSockets)issues.push(`${sharedSockets} lỗ bị hai fastener cùng chiếm chỗ.`);if(occupiedAnchors)issues.push(`${occupiedAnchors}/4 lỗ neo có pin/axle hiện hữu ở gần trục; cần xác nhận hoặc đổi lỗ.`);
- if(unseatedPins)issues.push(`${unseatedPins}/${pinCount} pin chưa xuyên đủ hai lỗ đồng trục, đúng chiều dài.`);
+ const issues:string[]=[];
+ if(sharedSockets)issues.push(`${sharedSockets} lỗ bị hai fastener cùng chiếm chỗ.`);
+ if(occupiedAnchors)issues.push(`${occupiedAnchors}/4 lỗ neo có pin/axle hiện hữu; zero-removal profile không được dùng các lỗ này.`);
+ if(unseatedPins)issues.push(`${unseatedPins}/${pinCount} pin/connector chưa xuyên đủ các lỗ đồng trục đúng chiều dài.`);
  if(axleConflicts)issues.push(`${axleConflicts} pin tròn đang được đặt vào vị trí lỗ axle.`);
  if(unconnectedParts)issues.push(`${unconnectedParts} mảnh chưa có chuỗi liên kết pin liên tục xuống chassis.`);
+ const count=(needle:string)=>parts.filter(p=>p.role.includes(needle)).length;
+ if(count('bottom ledge')<2)issues.push('Thiếu hai gờ đỡ đáy LEGO cho điện thoại.');
+ if(count('backrest rail')<2)issues.push('Thiếu hai rail mặt tựa sau cho điện thoại.');
+ if(count('left side retainer')<1||count('right pure-LEGO side retainer')<1)issues.push('Cage chưa có đủ chặn trái/phải bằng LEGO.');
+ if(count('top locking yoke')<3)issues.push('Top locking yoke chưa tạo thành cụm khóa ba beam.');
  return {ok:issues.length===0,pinCount,unseatedPins,axleConflicts,unconnectedParts,occupiedAnchors,sharedSockets,issues};
 }
