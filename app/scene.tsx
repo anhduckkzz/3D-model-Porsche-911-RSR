@@ -1,4 +1,5 @@
 'use client';
+import {mountPreparation} from './phone-mount-preparation';
 import {forwardRef,useEffect,useImperativeHandle,useRef,useState,type RefObject} from 'react';
 import * as T from 'three';
 import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
@@ -106,7 +107,8 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    if(s.mode!=='drive'){vehicle.position.set(0,0,0);vehicle.rotation.set(0,0,0);driveYaw=0;roadOffset=0;Object.assign(drivetrain,restingDrive());road.rotation.y=0;road.position.x=0;road.position.z=0}
    if(controls)controls.enabled=s.mode!=='drive';
    const previousVisible=new Set(slots.keys());buildFrame=s.mode==='build'?assemblyFrame(model.assembly,s.step):undefined;
-   visible=model.parts.filter(p=>(s.mode!=='advanced'||!s.mountContext||['chassis','suspension','engine','wheels'].includes(p.group))).filter(p=>buildFrame?(buildFrame.visible.has(p.id)||(!s.bench&&buildFrame.context.has(p.id))):(s.group==='all'||p.group===s.group));
+   const removed=((s.mode==='drive'&&driveMount?.audit?.ok)||(s.mode==='advanced'&&mount?.audit?.ok))?mountPreparation(model):new Set<number>();
+   visible=model.parts.filter(p=>!removed.has(p.id)).filter(p=>(s.mode!=='advanced'||!s.mountContext||['chassis','suspension','engine','wheels'].includes(p.group))).filter(p=>buildFrame?(buildFrame.visible.has(p.id)||(!s.bench&&buildFrame.context.has(p.id))):(s.group==='all'||p.group===s.group));
    destinations=base.map(clonePose);
    if(s.mode==='explore'){
     const nextKey=s.group+':'+availableAspect().toFixed(3);

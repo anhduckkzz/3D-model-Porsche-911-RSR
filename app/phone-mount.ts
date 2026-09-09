@@ -3,7 +3,7 @@ import {auditPhoneMount} from './phone-mount-audit';
 import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
 import type {ModelData} from './model-types';
 import {resolvePhoneMountInstallation,type MountInstallation} from './phone-mount-install';
-import {buildMountParts,mountCatalog,mountInventory} from './phone-mount-parts';
+import {buildMountParts,mountCatalog,mountInventory,phoneEnvelope} from './phone-mount-parts';
 
 const PHONE_MODEL='/model/vsmart-aris-xam-nhat-thuc.glb',Z=new T.Vector3(0,0,1);
 
@@ -43,9 +43,20 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  if(plan){phoneGroup.position.fromArray(plan.phonePose.position);phoneGroup.rotation.x=plan.phonePose.tilt}else phoneGroup.visible=false;
  function box(size:[number,number,number],pos:[number,number,number],material:T.Material,parent:T.Object3D=phoneGroup){const g=new T.BoxGeometry(...size);geometries.push(g);const mesh=new T.Mesh(g,material);mesh.position.fromArray(pos);parent.add(mesh);return mesh}
  const fallback=box([156.55*.025,76.175*.025,10.71*.025],[0,0,0],phoneFallback);fallback.name='Vsmart Aris loading fallback';
- // Retention is a real-world elastic strap, deliberately not disguised as LEGO.
- for(const z of [-.157,.157])box([.24,1.94,.018],[0,0,z],rubber).name='External retention strap face';
- for(const y of [-.97,.97])box([.24,.018,.332],[0,y,0],rubber).name='External retention strap return';
+ // Non-LEGO accessories are kept distinct from the stock part inventory.
+ // Side pads have supported contact near the front edge of the handset.
+ if(plan){
+  for(const side of [-1,1])for(const y of [1.6,2.6])box([.15,.16,.07],[side*2.035,y,1.35],rubber,stages[3]).name='External EVA side pad · 6 mm';
+  for(const x of [-.9,.9])box([.4,.16,.025],[x,1.2,1.1125],rubber,stages[3]).name='External EVA back pad · 1 mm';
+  const e=phoneEnvelope,front=e.back+e.depth,top=e.bottom+e.height;
+  // Closed loops wrap both the handset and cross bridge, outside their envelope.
+  const path=[[.69,.69],[1.11,.69],[front+.012,e.bottom-.012],[front+.012,top+.012],[e.back-.012,top+.012],[.69,1.31]];
+  for(const x of [-.4,.4])for(let i=0;i<path.length;i++){
+   const [za,ya]=path[i],[zb,yb]=path[(i+1)%path.length],a=new T.Vector3(x,ya,za),b=new T.Vector3(x,yb,zb);
+   const strip=box([.16,a.distanceTo(b),.012],a.clone().add(b).multiplyScalar(.5).toArray() as [number,number,number],rubber,stages[4]);
+   strip.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),b.sub(a).normalize());strip.name='External elastic loop · handset to bridge';
+  }
+ }
  const phoneAsset=new T.Group();phoneAsset.name='Vsmart Aris supplied GLB';phoneGroup.add(phoneAsset);
  let cancelled=false;
  new GLTFLoader().load(PHONE_MODEL,gltf=>{
