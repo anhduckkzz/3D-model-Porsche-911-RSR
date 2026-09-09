@@ -18,7 +18,8 @@ function groupCenter(model:ModelData,group:string){
 
 function partWorldBox(model:ModelData,p:Part){
  const bounds=model.geometries[p.geo]?.bounds;if(!bounds?.[0]||!bounds?.[1])return null;
- const min=new T.Vector3(...bounds[0]),max=new T.Vector3(...bounds[1]),m=matrixOf(p),box=new T.Box3();
+ const lo=bounds[0],hi=bounds[1];
+ const min=new T.Vector3(lo[0]??0,lo[1]??0,lo[2]??0),max=new T.Vector3(hi[0]??0,hi[1]??0,hi[2]??0),m=matrixOf(p),box=new T.Box3();
  for(const x of [min.x,max.x])for(const y of [min.y,max.y])for(const z of [min.z,max.z])box.expandByPoint(new T.Vector3(x,y,z).applyMatrix4(m));
  return box;
 }
@@ -72,12 +73,11 @@ export function resolvePhoneMountInstallation(model:ModelData):MountInstallation
   const end=start+ANCHOR_INTERVALS,holes=[[left,start,-1],[left,end,-1],[rightRail,start,1],[rightRail,end,1]] as const;
   if(holes.some(([rail,h])=>holeOccupied(model,rail,h)))continue;
   if(holes.some(([rail,h,side])=>outwardBlocked(model,rail,h,right.clone().multiplyScalar(side))))continue;
-  // Stay close to the original cockpit station while allowing an actually free
-  // pair of holes to win.  No visual-position heuristic can override clearance.
   candidates.push({start,score:Math.abs(start-5)});
  }
  if(!candidates.length)return null;
- const start=candidates.sort((a,b)=>a.score-b.score||a.start-b.start)[0].start,end=start+ANCHOR_INTERVALS;
+ candidates.sort((a,b)=>a.score-b.score||a.start-b.start);
+ const start=candidates[0].start,end=start+ANCHOR_INTERVALS;
  const selected=[[left,start],[left,end],[rightRail,start],[rightRail,end]] as const;
  const points=selected.map(([rail,hole])=>holeWorld(rail,hole));
  const origin=points.reduce((sum,p)=>sum.add(p),new T.Vector3()).multiplyScalar(.25);
