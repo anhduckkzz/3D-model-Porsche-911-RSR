@@ -65,7 +65,7 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
   root,audit,resolved:!!install,installation:install,inventory:mountInventory(parts),
   update(step:number,exploded:boolean){stages.forEach((g,i)=>{g.visible=i<=step;g.position.y=exploded?i*.82:0});syncInstallation();root.updateMatrixWorld(true)},
   setAids(visible:boolean){cameraAids.visible=visible;hardpointAids.visible=visible},
-  setContext(context:boolean){const show=!context||!!audit?.ok;instances.forEach(m=>m.visible=show);phoneGroup.visible=show&&!!plan;cameraAids.visible=show},
+  setContext(context:boolean){const show=!!plan;instances.forEach(m=>m.visible=show);phoneGroup.visible=show;hardpointAids.visible=show&&context;cameraAids.visible=show&&!context},
   setInstalled(_installed:boolean){syncInstallation()},
   dispose(){cancelled=true;root.onBeforeRender=()=>{};instances.forEach(m=>m.dispose());sight.dispose();geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose());importedGeometries.forEach(g=>g.dispose());importedMaterials.forEach(m=>m.dispose());importedTextures.forEach(t=>t.dispose())}
  };
