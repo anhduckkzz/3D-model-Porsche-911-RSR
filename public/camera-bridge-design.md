@@ -1,52 +1,64 @@
-# Porsche 42096 — chassis camera bridge, revision 03
+# Camera cage 42096 — revision 04
 
-This is my proposed **open-cockpit camera conversion** for the supplied stock model. It is not a mount that fits an otherwise untouched Porsche body. The design retains the two main chassis rails, engine, suspension and wheels, and replaces the obstructing upper-body arrangement with a braced camera support.
+## Ráp thêm hoàn toàn, giữ nguyên xe
 
-## Preparation — remove assemblies before installing the rig
+Bản này thay thế thiết kế xuyên qua cockpit. **Không tháo hoặc di chuyển mảnh nào của xe gốc. Không có vòng đàn hồi, dây, keo, đệm EVA hay mảnh tự chế.** Khung và các cơ cấu chặn đều dùng geometry LDraw của các mảnh LEGO có sẵn trong dự án.
 
-Remove the roof assemblies, both doors and the seat1 assembly. Remove chassis6 and chassis9 (the side-body support subassemblies). Remove the upper-body assemblies introduced in source steps 159–162 and 213. Also remove these individual source instance IDs: 298, 299, 300, 301, 302, 303, 786, 787, 788, 789, 936, 937, 938, 939. The 13L uprights 298/301 are explicitly part of the conversion; do not leave their dependent upper-body structure in place.
+Giá neo từ mặt dưới hai frame Technic 5 × 7, đưa hai trụ ra ngoài thân xe và nối cầu phía trên mui. Đây là lựa chọn ưu tiên giữ nguyên xe; khung rộng và cao hơn một giá đặt trong cockpit. Tâm hai trụ ngoài cách nhau 304 mm. Khối lượng và độ cứng thực tế chưa được đo.
 
-The complete list is in [camera-bridge-clearance.json](camera-bridge-clearance.json): **292 original pieces are temporarily removed**. These are MPD source instance IDs and source assembly steps, not LEGO PDF page numbers. The original car remains intact in Explore and its assembly guide. Drive shows the converted configuration. The chassis inspection view additionally hides front/rear exterior groups for visibility.
+## Bốn hardpoint thật
 
-This amount of disassembly is a deliberate tradeoff: the model's original roof, seat backs and side supports occupy the proposed low camera volume. Do not assemble the rig through them. Save removed subassemblies for reversing the conversion.
+| Điểm | Frame gốc | Mã mảnh | Tâm lỗ trong LDraw |
+|---|---:|---|---|
+| H1 | instance 110 | 64179 | (-40, 0, -60) |
+| H2 | instance 110 | 64179 | (40, 0, -60) |
+| H3 | instance 118 | 64179 | (-40, 0, -60) |
+| H4 | instance 118 | 64179 | (40, 0, -60) |
 
-## Reference frame and real hardpoints
+Đây là các lỗ góc ở mép trước hai frame nằm dưới chassis. Mỗi cặp cách nhau 32 mm. Trục lỗ hướng xuống gầm. Tọa độ được biến đổi bằng matrix thật của từng frame; hệ trục giá theo độ nghiêng có sẵn trong model. Không lấy tâm của một panel rồi coi đó là điểm neo.
 
-One Technic hole interval is 8 mm (20 LDraw units). Render scale is uniform: 1 world unit = 40 mm. The installation frame is calculated from the actual transformed holes of the stock model, including its slight authored pitch.
+Hai beam 15L mới nằm sát mặt dưới frame, lệch đúng một lớp 8 mm. Bốn pin 2780 xuyên qua lỗ thật để giữ các beam này. Nâng xe lên để tiếp cận từ dưới, lắp từng bên, rồi đặt xe xuống; không cần tháo các cụm thân xe.
 
-| Anchor | Original instance | Mould | Hole, 1-based |
-|---|---:|---:|---:|
-| H1 | 338 | 32278, 15L | 6 |
-| H2 | 338 | 32278, 15L | 14 |
-| H3 | 337 | 32278, 15L | 6 |
-| H4 | 337 | 32278, 15L | 14 |
+## Trình tự lắp
 
-H1/H3 are the rear endpoints in this authored model. The two holes on each rail are 64 mm apart. Each new 9L base rail sits one 8 mm layer outside the existing rail. Four 2780 pins connect the two layers. The base rails cannot pivot freely because each has two separated hardpoints.
+1. **Hai beam dưới gầm.** Lắp hai beam 32278 15L bằng bốn pin đen 2780. Beam đi từ phía trong frame ra ngoài thân xe. Hai pin mỗi bên chống xoay tại điểm neo.
+2. **Hai giằng ngoài thân.** Trên mỗi beam dưới gầm, lắp hai connector 15100 để đổi trục lỗ sang phương trước–sau. Trụ chính dùng 32278 15L, chéo dùng 32525 11L. Khoảng tâm tạo tam giác 48–64–80 mm. Chân chéo có spacer 18654 và pin xanh 6558; chân đứng và đỉnh tam giác dùng 2780. Nối phần trên bằng 40490 9L, chồng ba lỗ và khóa hai đầu vùng chồng.
+3. **Cầu ngang trên mui.** Mỗi cao độ dùng ba beam 15L: hai beam ngoài ở cùng lớp và beam giữa ở lớp kế tiếp. Khóa mỗi vùng chồng bằng hai pin. Có hai thanh ngang cách cao độ 16 mm. Chúng liên kết hai trụ; không tựa lên mui.
+4. **Đáy, lưng và chặn cạnh.** Bốn thân connector 15100 là ledge ngắn đỡ đáy. Beam 11L phía sau cùng hai spacer tạo mặt tựa lưng. Hai beam 15L bên lồng có các lỗ dẫn hướng ngang cho bốn axle 32073 5L. Mỗi axle có một bush 3713 ở đầu trong làm mặt chặn và hai half-bush 32123b áp hai phía beam dẫn hướng để giữ vị trí.
+5. **Đặt máy, đóng lồng và chỉnh chặn.** Tựa điện thoại lên đáy và lưng. Lắp cặp thanh phía trên và hai cặp thanh phía trước. Thanh trước được giữ qua các axle 3707 8L, spacer và bush chặn hai đầu; đường axle nằm ngoài bề rộng điện thoại. Hai axle 3706 6L điều chỉnh chặn trên. Bốn axle 32073 5L điều chỉnh chặn trước. Đẩy chặn đến gần mặt máy, rồi khóa half-bush sát hai mặt beam dẫn hướng. Không dùng lực ép màn hình.
 
-## Assembly sequence
+Để tháo điện thoại, mở thanh trước/nắp của lồng mới lắp, không tháo xe gốc. Lắp các phần đóng lồng sau khi đã đặt điện thoại; không cố ép máy qua các mặt chặn đã khóa.
 
-1. **Base rails.** Attach the end holes of the two white 40490 9L beams at H1–H4 with four black 2780 pins. Insert before fitting the side trusses, while the outer side is accessible.
-2. **Side triangles.** Each triangle uses base holes 2 and 8, a vertical 40490 9L and a diagonal 32525 11L. Hole-centre distances are exactly 48–64–80 mm (6–8–10 intervals). Put the vertical one layer outside the base, the diagonal one layer farther out. At the rear diagonal foot, fill the intermediate layer with 18654 and use a blue 6558 3L pin. At the front foot and apex use black 2780 2L pins. Finish all three joints before loading the triangle.
-3. **Bridge.** Insert 15100 connectors into holes 5 and 7 of each vertical, with their integrated pins pointing into the beam and their female bores longitudinal. At each height, overlap two 41239 13L beams at three holes; use two black pins at the ends of the overlap. The left bar is one depth layer behind the right bar. A 18654 spacer plus 6558 pin bridges the extra right-side layer. The two crossbars are 16 mm apart vertically, rather than hanging the cradle from one hinge axis.
-4. **Cradle.** Attach each 32525 side upright to both crossbars with two 2780 pins. Add two 32524 7L backrest spacers on the left, each with two pins, to make the left/right back surfaces flush. Four forward-facing 15100 bodies on the lower crossbar form short supporting ledges under the handset; their integrated pins plug into the backrest/bridge. They are not long, unsupported cantilever beams. Add two 15100 adapters per side upright at holes 4 and 9, then 32316 5L side rails in the next vertical layer with 2780 pins. The rail's end hole meets the adapter; it does not pass through the upright.
-5. **Contact and retention.** Add four external EVA side pads, 6 mm thick, and two external back pads, 1 mm thick. Seat the handset landscape on the four short ledges and against the padded backrest. Wrap two elastic loops around **both handset and bridge**, avoiding the camera. The loops provide preload toward the backrest and down onto the ledges. The rail joints use friction pins; the pads and strap tension are part of retention, not decoration.
+## Giữ máy bằng các mặt chặn điều chỉnh
 
-## Phone fit and load path
+Kích thước lấy theo envelope của asset Aris đã cung cấp: **156,55 × 76,175 × 10,71 mm** ở tư thế ngang.
 
-The supplied Aris GLB envelope in landscape is 156.55 × 76.175 × 10.71 mm. The cradle's outside upright hole centres are 176 mm apart. The inner side-rail faces are 168.8 mm apart; 6 mm pads on each side leave approximately 0.25 mm total nominal width clearance. That is a model dimension, not a claim about a phone with a protective case or manufacturing tolerances. The actual camera is forward-facing; the displayed sight lines are a clearance aid, not a calibrated lens model.
+- Đáy và lưng là hai mặt tựa cố định.
+- Bốn bush cạnh giới hạn dịch ngang và giúp giữ hướng máy.
+- Bốn bush phía trước chặn máy rời mặt tựa lưng.
+- Hai bush phía trên chặn máy nhấc khỏi ledge.
+- Axle được trượt để chỉnh vị trí; hai half-bush giữ nó ở hai phía beam. Đây là cơ cấu LEGO lắp thật, không phải kéo giãn mesh hay ép kích thước theo lưới lỗ.
 
-The ledges carry vertical weight into the lower crossbar. The upper crossbar and strap resist handset pitch. Both crossbars transfer load into the vertical legs; the diagonals restrain fore/aft sway. The base rails spread that load between the four chassis pins. Removing the original upper structure changes the vehicle's stiffness, so the assembled conversion needs a physical twist/rattle test as well as a mount-only test.
+Model chừa **0,2 mm** ở các mặt chặn điều chỉnh để tránh xuyên vào envelope. Đây là khe hở danh nghĩa cho kiểm tra hình học, không phải độ chính xác bảo đảm của đồ chơi hoặc điện thoại thật. Chỉnh theo máy thực tế, tránh nút bấm và kiểm tra khả năng bush trượt dưới tải. Cơ cấu giữ bằng ma sát bush/axle cần được thử rung trước khi dùng camera để thu dữ liệu.
 
-## Verification and limits
+Camera sau hướng đầu xe. Các đường sight trong chế độ xem riêng là aid hình học, không đại diện cho FOV đã hiệu chuẩn.
 
-The socket audit checks 42 separate or integrated fasteners: centre alignment, bore direction, full engagement length, duplicate socket use, occupied chassis anchors and a continuous connection graph back to the chassis. All pass on the supplied model. No LEGO mould is stretched or generated procedurally.
+## Đường truyền tải và đánh đổi
 
-The optional offline BVH check uses the full-resolution LDraw geometry. It finds no unexpected surface intersections between the rig and the prepared car, between non-fastener rig bodies, between the phone and rig, or between the phone and prepared car. Intentional friction-pin mating surfaces are excluded. The report records the required removals and actual stock-model interference IDs.
+Trọng lượng điện thoại đi từ ledge xuống cầu ngang, qua trụ và giằng, vào hai beam dưới gầm và bốn pin của frame chassis. Mui, cửa, ghế và panel thân xe không làm điểm tì tải.
 
-This does **not** certify insertion access for every pin, enclosed-volume containment, structural strength, real-part tolerances, clamp force, shock response or moving suspension/steering clearance. Fit the unladen rig first, test torsion by hand, then install the handset and test at low speed. The design and checks are based on the supplied stock model; an unmodelled motor, hub or cable route is outside this geometry.
+Giữ nguyên thân xe đòi hỏi đi vòng bên ngoài: khung có bề rộng lớn, camera cao hơn mui và các beam dưới gầm làm giảm khoảng sáng. Không suy từ việc khớp lỗ ra rằng kết cấu đủ cứng. Cần kiểm tra độ uốn của beam, độ rơ tại connector, độ bền pin neo, khoảng sáng gầm và hành trình hệ treo trên xe thật. Việc thêm khung và điện thoại cũng thay đổi khối lượng và trọng tâm.
 
-## Reproduce the checks
+## Phạm vi kiểm tra
 
-Run `npm test` for socket and drive-motion checks. For the optional offline mesh check, install `three-mesh-bvh@0.9.15` in a temporary directory and set `LEGO_BVH_MODULE` to its `build/index.module.js`, then run `node scripts/validate-rig-clearance.mjs`. This dependency is not used or loaded by the web viewer.
+Kiểm tra socket xét tâm, trục, chiều dài ăn khớp, lỗ bị chiếm trùng và đường liên kết về chassis. Các axle xuyên qua lỗ tròn được nhận diện riêng với pin ma sát; bush/half-bush là lỗ axle. Kiểm tra cũng yêu cầu đủ các nhóm mặt chặn và bộ khóa giữ.
 
-LEGO geometry is reused from the project's LDraw assets; see [part credits](ldraw-part-credits.txt). EVA and elastic straps are separately identified non-LEGO accessories.
+Kiểm tra bề mặt dùng toàn bộ mesh LDraw độ phân giải cao của xe nguyên vẹn và giá mới. [Báo cáo](camera-bridge-clearance.json) phải có `removedParts: []`, không có giao cắt ngoài các cặp tiếp xúc lắp ráp được nhận diện. Envelope điện thoại được kiểm tra với cả xe và giá.
+
+Các kiểm tra này không thay thế thử tải, thử rung, dung sai mảnh, kiểm tra lực giữ, kiểm tra vật thể bị bao kín hoặc mô phỏng hết hành trình cơ cấu chuyển động. Phần độ motor/hub chưa được mô hình hóa không nằm trong kiểm tra này.
+
+## Chạy lại kiểm tra
+
+`npm test` chạy kiểm tra asset, chức năng cũ và socket/drive rig. Kiểm tra mesh chạy bằng `scripts/validate-rig-clearance.mjs` với `LEGO_BVH_MODULE` trỏ đến bản cài tạm `three-mesh-bvh@0.9.15`. Thư viện BVH chỉ phục vụ kiểm tra offline, không tải vào web.
+
+[Nguồn LDraw và tác giả](ldraw-part-credits.txt). Danh sách số lượng mảnh của từng bước nằm trong tab Advanced.

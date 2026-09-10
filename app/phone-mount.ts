@@ -8,9 +8,9 @@ import {buildMountParts,mountCatalog,mountInventory} from './phone-mount-parts';
 const PHONE_MODEL='/model/vsmart-aris-xam-nhat-thuc.glb',Z=new T.Vector3(0,0,1);
 
 /**
- * Pure-LEGO low camera bridge.  Every structural/retaining member comes from a
- * stock LDraw mould at uniform 0.01 scale; the phone is the supplied Aris GLB.
- * No hidden foam, elastic, clip box or render-only support is added.
+ * Low roll-cage camera bridge. LEGO geometry is always an original LDraw mesh
+ * at uniform 0.01 scale. The installation frame comes from real chassis beam
+ * holes in model.json, never from a guessed whole-rig xyz.
  */
 export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeometry[],installation?:MountInstallation|null){
  const install=installation===undefined?resolvePhoneMountInstallation(model):installation;
@@ -24,8 +24,6 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  const audit=install?auditPhoneMount(model,install,parts):null;
  const scale=new T.Vector3(.01,.01,.01),matrix=new T.Matrix4();
 
- // Stage 05 contains real LEGO yoke parts as well as the handset, so render all
- // five mechanical stages rather than treating the last stage as accessories.
  for(let stage=0;stage<5;stage++)for(const [code,spec] of Object.entries(mountCatalog)){
   const entries=parts.filter(p=>p.stage===stage&&p.code===code);if(!entries.length)continue;
   const geo=model.geometries.findIndex(g=>g.name===code+'.dat'&&g.colorHex===spec.color);
@@ -35,10 +33,10 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
   mesh.computeBoundingSphere();stages[stage].add(mesh);instances.push(mesh);
  }
 
- // Step 01 exposes the exact intact-chassis holes selected by the resolver.
+ // Step 01 exposes the exact authored chassis holes selected by the resolver.
  // Rings are inspection aids only and disappear on the Drive installation.
  const hardpointAids=new T.Group();stages[0].add(hardpointAids);
- if(install)for(const anchor of install.anchors){const g=new T.TorusGeometry(.105,.017,8,24);geometries.push(g);const ring=new T.Mesh(g,aidMaterial);ring.position.fromArray(anchor.local);ring.rotation.y=Math.PI/2;ring.renderOrder=8;ring.userData={anchor:true,partId:anchor.partId,hole:anchor.hole,code:anchor.code};hardpointAids.add(ring)}
+ if(install)for(const anchor of install.anchors){const g=new T.TorusGeometry(.105,.017,8,24);geometries.push(g);const ring=new T.Mesh(g,aidMaterial);ring.position.fromArray(anchor.local);ring.rotation.x=Math.PI/2;ring.renderOrder=8;ring.userData={anchor:true,partId:anchor.partId,hole:anchor.hole,code:anchor.code};hardpointAids.add(ring)}
 
  const phoneGroup=new T.Group();stages[4].add(phoneGroup);
  if(plan){phoneGroup.position.fromArray(plan.phonePose.position);phoneGroup.rotation.x=plan.phonePose.tilt}else phoneGroup.visible=false;
@@ -59,6 +57,7 @@ export function createPhoneMount(model:ModelData,sourceGeometries:T.BufferGeomet
  corners.forEach((p,i)=>lines.push(...eye.toArray(),...p.toArray(),...p.toArray(),...corners[(i+1)%4].toArray()));
  const fg=new T.BufferGeometry();fg.setAttribute('position',new T.Float32BufferAttribute(lines,3));geometries.push(fg);const fm=new T.LineBasicMaterial({color:0x8aa7b9,transparent:true,opacity:.42});materials.push(fm);cameraAids.add(new T.LineSegments(fg,fm));
 
+ // A single installation frame; no guessed root offset or render-time compensation.
  if(install){root.position.fromArray(install.origin);root.quaternion.fromArray(install.rotation)}
  function syncInstallation(){root.updateMatrixWorld(true)}
  return {
