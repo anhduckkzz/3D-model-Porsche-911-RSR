@@ -11,7 +11,7 @@ import type {VehicleState} from './vehicle-link';
 import type {ModelData,Part,ViewerMode} from './model-types';
 
 export type SceneHandle={fit:()=>void;view:(v:'iso'|'top'|'side')=>void;focus:()=>void};
-type Props={drive:VehicleState;mountStep:number;mountContext:boolean;mountExplode:boolean;step:number;explode:number;group:string;selected:number|null;mode:ViewerMode;replay:number;followStep:boolean;bench:boolean;onExplosionSplit:(n:number)=>void;onReady:(d:ModelData)=>void;onSelect:(id:number|null)=>void;previewHost:RefObject<HTMLDivElement|null>};
+type Props={drive:VehicleState;mountStep:number;mountContext:boolean;step:number;explode:number;group:string;selected:number|null;mode:ViewerMode;replay:number;followStep:boolean;bench:boolean;onExplosionSplit:(n:number)=>void;onReady:(d:ModelData)=>void;onSelect:(id:number|null)=>void;previewHost:RefObject<HTMLDivElement|null>};
 type Batch={mesh:T.InstancedMesh;parts:Part[];ids:number[];styles:T.InstancedBufferAttribute};
 type Motion={part:Part;from:PiecePose;to:PiecePose;delay:number};
 const ISO=new T.Vector3(1,.63,1).normalize();
@@ -24,7 +24,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
  const host=useRef<HTMLDivElement>(null),latest=useRef(props),api=useRef<SceneHandle|null>(null),apply=useRef<(()=>void)|null>(null);
  const [status,setStatus]=useState('Đang tải mô hình…'),[error,setError]=useState(false);latest.current=props;
  useImperativeHandle(ref,()=>({fit:()=>api.current?.fit(),view:v=>api.current?.view(v),focus:()=>api.current?.focus()}),[]);
- useEffect(()=>{apply.current?.()},[props.step,props.explode,props.group,props.selected,props.mode,props.replay,props.followStep,props.bench,props.mountStep,props.mountContext,props.mountExplode]);
+ useEffect(()=>{apply.current?.()},[props.step,props.explode,props.group,props.selected,props.mode,props.replay,props.followStep,props.bench,props.mountStep,props.mountContext]);
  useEffect(()=>{wake.current?.()},[props.drive]);
  useEffect(()=>{
   const el=host.current!;let disposed=false,ready=false,raf=0,worker:Worker|undefined,renderer:T.WebGLRenderer|undefined,controls:OrbitControls|undefined,resize:ResizeObserver|undefined,previewResize:ResizeObserver|undefined;
@@ -95,13 +95,13 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
   const previewMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:.36,metalness:.04,side:T.DoubleSide});mats.push(previewMaterial);
   function updateState(){
    if(!ready)return;const s=latest.current;const extent=s.mode==='explore'?s.explode:0;
-   const key=[s.mode,s.step,s.group,extent.toFixed(4),s.replay,s.followStep,s.bench,s.mountStep,s.mountContext,s.mountExplode,aspect.toFixed(3)].join(':');
+   const key=[s.mode,s.step,s.group,extent.toFixed(4),s.replay,s.followStep,s.bench,s.mountStep,s.mountContext,aspect.toFixed(3)].join(':');
    if(key===lastKey){stylePieces();rebuildPreview();request();return}
    const modeChanged=s.mode!==lastMode,contextChanged=s.bench!==lastBench;const enteringBuild=s.mode==='build'&&lastMode!=='build';const animateBuild=s.mode==='build'&&(s.step!==lastStep||s.replay!==lastReplay||enteringBuild);
    lastKey=key;lastMode=s.mode;lastStep=s.step;lastReplay=s.replay;lastBench=s.bench;
    road.visible=s.mode==='drive';
-   mount!.root.visible=s.mode==='advanced';mount!.update(s.mountStep,s.mountExplode);mount!.setContext(s.mountContext);
-   driveMount!.root.visible=s.mode==='drive'&&!!driveMount!.audit?.ok;driveMount!.update(4,false);driveMount!.setAids(false);
+   mount!.root.visible=s.mode==='advanced';mount!.update(s.mountStep);mount!.setContext(s.mountContext);
+   driveMount!.root.visible=s.mode==='drive'&&!!driveMount!.audit?.ok;driveMount!.update(4);driveMount!.setAids(false);
    vehicle.visible=s.mode!=='advanced'||s.mountContext;
    if(s.mode!=='drive'){vehicle.position.set(0,0,0);vehicle.rotation.set(0,0,0);driveYaw=0;roadOffset=0;Object.assign(drivetrain,restingDrive());road.rotation.y=0;road.position.x=0;road.position.z=0}
    if(controls)controls.enabled=s.mode!=='drive';
@@ -179,7 +179,7 @@ const Scene=forwardRef<SceneHandle,Props>(function Scene(props,ref){
    const loaded=await new Promise<{model:ModelData;buffer:ArrayBuffer}>((resolve,reject)=>{worker=new Worker('/model-worker.js');worker.onmessage=e=>{if(e.data.error)reject(new Error(e.data.error));else resolve(e.data);worker?.terminate()};worker.onerror=()=>reject(new Error('Không tải được mô hình.'));worker.postMessage({load:true})});if(disposed)return;model=loaded.model;const binary=loaded.buffer;setStatus('Chuẩn bị cảnh 3D…');
    for(const info of model.geometries){const g=new T.BufferGeometry();for(const k of ['position','normal','color'] as const){const a=info[k];g.setAttribute(k,new T.BufferAttribute(new Float32Array(binary,a.offset,a.count),3))}const hi=new T.BufferAttribute(new Uint32Array(binary,info.index.offset,info.index.count),1),lo=new T.BufferAttribute(new Uint32Array(binary,info.indexLow.offset,info.indexLow.count),1);highIndices.push(hi);lowIndices.push(lo);g.setIndex(lowDetail?lo:hi);g.computeBoundingBox();g.computeBoundingSphere();geometries.push(g)}
    mount=createPhoneMount(model,geometries);mount.root.visible=false;scene.add(mount.root);
-   driveMount=createPhoneMount(model,geometries);driveMount.root.visible=false;driveMount.update(4,false);driveMount.setAids(false);vehicle.add(driveMount.root);
+   driveMount=createPhoneMount(model,geometries);driveMount.root.visible=false;driveMount.update(4);driveMount.setAids(false);vehicle.add(driveMount.root);
    const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.3,metalness:.03,side:T.DoubleSide});material.onBeforeCompile=shader=>{shader.vertexShader='attribute float pieceStyle; varying float vPieceStyle;\n'+shader.vertexShader;shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>','#include <begin_vertex>\nvPieceStyle = pieceStyle;');shader.fragmentShader='varying float vPieceStyle;\n'+shader.fragmentShader;shader.fragmentShader=shader.fragmentShader.replace('#include <color_fragment>','#include <color_fragment>\nif (vPieceStyle > 2.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.75,0.79,0.82), 0.9); } else if (vPieceStyle > 1.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.12,0.34,0.64), 0.82); } else if (vPieceStyle > 0.5) { diffuseColor.rgb = mix(diffuseColor.rgb, vec3(0.85,0.24,0.065), 0.76); }')};mats.push(material);
    const byGeo=new Map<number,Part[]>();for(const p of model.parts){if(!byGeo.has(p.geo))byGeo.set(p.geo,[]);byGeo.get(p.geo)!.push(p);base[p.id]=pose(new T.Matrix4().fromArray(p.matrix));current[p.id]=clonePose(base[p.id])}
 

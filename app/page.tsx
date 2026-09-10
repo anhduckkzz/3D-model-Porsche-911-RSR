@@ -20,7 +20,7 @@ const partName=(name:string)=>name.replace(/^42096 - /,'').replace(/\.(dat|ldr)$
 export default function Home(){
  const [data,setData]=useState<ModelData|null>(null),[mode,setMode]=useState<ViewerMode>('explore'),[step,setStep]=useState(1),[explode,setExplode]=useState(0),[group,setGroup]=useState('all'),[selected,setSelected]=useState<number|null>(null),[playing,setPlaying]=useState(false),[speed,setSpeed]=useState('1'),[replay,setReplay]=useState(0),[followStep,setFollowStep]=useState(true),[info,setInfo]=useState(false),[groupsOpen,setGroupsOpen]=useState(false);
  const [drive,setDrive]=useState<VehicleState>({connected:false,armed:false,fb:0,lr:0,message:''});
- const [mountStep,setMountStep]=useState(4),[mountContext,setMountContext]=useState(false),[mountExplode,setMountExplode]=useState(false);
+ const [mountStep,setMountStep]=useState(4),[mountContext,setMountContext]=useState(false);
  const onDrive=useCallback((s:VehicleState)=>setDrive(p=>p.connected===s.connected&&p.armed===s.armed&&p.fb===s.fb&&p.lr===s.lr?p:s),[]);
  const [treeOpen,setTreeOpen]=useState(false);
  const [bench,setBench]=useState(true),[split,setSplit]=useState(.5),[returnSteps,setReturnSteps]=useState<number[]>([]);
@@ -40,7 +40,7 @@ export default function Home(){
  const reset=()=>{setExplode(0);setGroup('all');setSelected(null);scene.current?.view('iso')};
  const selectPart=useCallback((id:number|null)=>{setSelected(id);setPlaying(false)},[]);
  return <TooltipProvider delayDuration={300}><Tabs value={mode} onValueChange={selectMode}><main className={`workbench ${mode}-mode`} ref={main}>
-  <Scene drive={drive} mountStep={mountStep} mountContext={mountContext} mountExplode={mountExplode} ref={scene} step={step} explode={explode} group={group} selected={selected} mode={mode} replay={replay} followStep={followStep} bench={bench} onExplosionSplit={setSplit} onReady={onReady} onSelect={selectPart} previewHost={previewHost}/>
+  <Scene drive={drive} mountStep={mountStep} mountContext={mountContext} ref={scene} step={step} explode={explode} group={group} selected={selected} mode={mode} replay={replay} followStep={followStep} bench={bench} onExplosionSplit={setSplit} onReady={onReady} onSelect={selectPart} previewHost={previewHost}/>
   <header className="topbar">
    <div className="identity"><span className="product-name">Porsche 911 RSR</span><span className="set-number">Technic / 42096</span></div>
    <TabsList className="mode-switch" aria-label="Chế độ xem"><TabsTrigger value="explore">Khám phá</TabsTrigger><TabsTrigger value="build">Lắp ráp</TabsTrigger><TabsTrigger value="drive">Điều khiển</TabsTrigger><TabsTrigger value="advanced">Advanced</TabsTrigger></TabsList>
@@ -58,7 +58,7 @@ export default function Home(){
    {!!returnSteps.length&&<button className="return-assembly" onClick={()=>{setPlaying(false);changeStep(returnSteps[returnSteps.length-1]);setReturnSteps(stack=>stack.slice(0,-1))}}>Quay lại bước ghép cụm <ChevronRight size={13}/></button>}
   </div>}
   {mode==='drive'&&<DriveConsole onState={onDrive}/>}
-  {mode==='advanced'&&<AdvancedPanel data={data} step={mountStep} onStep={setMountStep} context={mountContext} onContext={setMountContext} exploded={mountExplode} onExploded={setMountExplode}/>}
+  {mode==='advanced'&&<AdvancedPanel data={data} step={mountStep} onStep={setMountStep} context={mountContext} onContext={setMountContext}/>}
   {mode!=='drive'&&<div className="view-tools"><IconButton label="Vừa khung hình" onClick={()=>scene.current?.fit()}><Maximize2/></IconButton><IconButton label="Nhìn từ trên" disabled={mode==='explore'&&explode>0} onClick={()=>scene.current?.view('top')}><Layers/></IconButton><IconButton label="Góc nhìn 3D" onClick={()=>scene.current?.view('iso')}><Scan/></IconButton></div>}
   {(mode==='explore'||mode==='build')&&(mode==='build'||part)&&<aside className={`guide ${mode==='build'?'build-guide':'part-guide'}`} aria-label={mode==='build'?'Hướng dẫn lắp ráp 3D':'Chi tiết đã chọn'}>
    <div className="guide-heading"><div><div className="small-label">{mode==='build'?`Thao tác ${frame?.localStep??1} / ${frame?.localCount??1}`:'Chi tiết đã chọn'}</div><h2>{mode==='build'?(frame&&data?assemblyLabel(frame.node,data):'Lắp ráp'):geometry?partName(geometry.name):''}</h2></div>{part&&<IconButton label="Bỏ chọn mảnh" onClick={()=>setSelected(null)}><X/></IconButton>}</div>

@@ -1,4 +1,4 @@
-# Camera cage 42096 — revision 04
+# Camera cage 42096 — revision 05
 
 ## Ráp thêm hoàn toàn, giữ nguyên xe
 
@@ -22,8 +22,8 @@ Hai beam 15L mới nằm sát mặt dưới frame, lệch đúng một lớp 8 m
 ## Trình tự lắp
 
 1. **Hai beam dưới gầm.** Lắp hai beam 32278 15L bằng bốn pin đen 2780. Beam đi từ phía trong frame ra ngoài thân xe. Hai pin mỗi bên chống xoay tại điểm neo.
-2. **Hai giằng ngoài thân.** Trên mỗi beam dưới gầm, lắp hai connector 15100 để đổi trục lỗ sang phương trước–sau. Trụ chính dùng 32278 15L, chéo dùng 32525 11L. Khoảng tâm tạo tam giác 48–64–80 mm. Chân chéo có spacer 18654 và pin xanh 6558; chân đứng và đỉnh tam giác dùng 2780. Nối phần trên bằng 40490 9L, chồng ba lỗ và khóa hai đầu vùng chồng.
-3. **Cầu ngang trên mui.** Mỗi cao độ dùng ba beam 15L: hai beam ngoài ở cùng lớp và beam giữa ở lớp kế tiếp. Khóa mỗi vùng chồng bằng hai pin. Có hai thanh ngang cách cao độ 16 mm. Chúng liên kết hai trụ; không tựa lên mui.
+2. **Trụ ghép so le và giằng dưới.** Giữ trụ 32278 15L, chéo 32525 11L và phần nối trên 40490 9L. Thêm một 32278 phía sau, bắt đầu cao hơn chân trụ một khoảng lỗ (8 mm), và một 32524 7L ở lớp kế tiếp phía trên. Khóa ba vùng ba lớp bằng pin 6558; nối dọc phần còn lại bằng pin 2780. Hai đường nối được bố trí so le để lớp bên cạnh bắc qua mối nối. Tại đỉnh giằng dưới, dùng axle 3707 8L thay pin ngắn, xuyên qua beam sau, trụ và giằng dưới; lắp bush 3713 phía sau và spacer 18654 ở phía trước. Đầu axle trước chờ bước 3.
+3. **Cầu ngang và giằng đầu trụ.** Mỗi cao độ dùng ba beam 15L; hai cầu cách cao độ 16 mm. Khóa mỗi cầu vào cả hai lớp trụ bằng pin 6558. Thêm một beam 32525 11L mỗi bên từ cầu dưới xuống đỉnh giằng dưới, tạo thêm tam giác 48–64–80 mm. Đầu trên nối cầu bằng pin 2780, đầu dưới luồn vào axle 8L đã lắp. Thêm bush 3713 phía trước, ép sát hai mặt ngoài của chồng mảnh. Hai bush giữ chồng mảnh theo trục; axle trong lỗ tròn vẫn là khớp quay, độ ổn định đến từ tam giác đóng và các liên kết còn lại.
 4. **Đáy, lưng và chặn cạnh.** Bốn thân connector 15100 là ledge ngắn đỡ đáy. Beam 11L phía sau cùng hai spacer tạo mặt tựa lưng. Hai beam 15L bên lồng có các lỗ dẫn hướng ngang cho bốn axle 32073 5L. Mỗi axle có một bush 3713 ở đầu trong làm mặt chặn và hai half-bush 32123b áp hai phía beam dẫn hướng để giữ vị trí.
 5. **Đặt máy, đóng lồng và chỉnh chặn.** Tựa điện thoại lên đáy và lưng. Lắp cặp thanh phía trên và hai cặp thanh phía trước. Thanh trước được giữ qua các axle 3707 8L, spacer và bush chặn hai đầu; đường axle nằm ngoài bề rộng điện thoại. Hai axle 3706 6L điều chỉnh chặn trên. Bốn axle 32073 5L điều chỉnh chặn trước. Đẩy chặn đến gần mặt máy, rồi khóa half-bush sát hai mặt beam dẫn hướng. Không dùng lực ép màn hình.
 
@@ -45,7 +45,7 @@ Camera sau hướng đầu xe. Các đường sight trong chế độ xem riêng
 
 ## Đường truyền tải và đánh đổi
 
-Trọng lượng điện thoại đi từ ledge xuống cầu ngang, qua trụ và giằng, vào hai beam dưới gầm và bốn pin của frame chassis. Mui, cửa, ghế và panel thân xe không làm điểm tì tải.
+Trọng lượng điện thoại đi từ ledge xuống cầu ngang, chia qua trụ ghép và giằng đầu trụ; giằng đầu trụ đưa tải về nút giữa trụ nối với tam giác dưới, rồi vào hai beam dưới gầm và bốn pin của frame chassis. Beam bổ sung bắc qua các mối nối, pin xuyên nhiều lớp liên kết các lớp với nhau. Đây là gia cố trụ ghép và tam giác trong mặt ngang xe; chưa phải khung hộp giằng đủ ba chiều, và chưa có số đo mức tăng độ cứng. Mui, cửa, ghế và panel thân xe không làm điểm tì tải.
 
 Giữ nguyên thân xe đòi hỏi đi vòng bên ngoài: khung có bề rộng lớn, camera cao hơn mui và các beam dưới gầm làm giảm khoảng sáng. Không suy từ việc khớp lỗ ra rằng kết cấu đủ cứng. Cần kiểm tra độ uốn của beam, độ rơ tại connector, độ bền pin neo, khoảng sáng gầm và hành trình hệ treo trên xe thật. Việc thêm khung và điện thoại cũng thay đổi khối lượng và trọng tâm.
 

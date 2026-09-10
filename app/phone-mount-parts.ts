@@ -31,14 +31,26 @@ export function buildMountParts(install:MountInstallation){
   beam('32278',1,v(s*3.8,0,.8),v(s*3.8,2.8,.8),Z,'outer upright 15L');
   beam('32525',1,v(s*2.6,0,1),v(s*3.8,1.6,1),Z,'6–8–10 diagonal');
   spacer(1,v(s*2.6,0,.8),Z);shaft('6558',1,v(s*2.6,0,.8),Z,'diagonal foot / spacer / adapter');
-  shaft('2780',1,v(s*3.8,0,.7),Z,'upright foot');shaft('2780',1,v(s*3.8,1.6,.9),Z,'triangle apex');
+  shaft('2780',1,v(s*3.8,0,.7),Z,'upright foot');
   beam('40490',1,v(s*3.8,2.4,1),v(s*3.8,4,1),Z,'upper upright 9L');
-  for(const y of [2.4,2.8])shaft('2780',1,v(s*3.8,y,.9),Z,'upright two-pin lap');
+  // Staggered backing beams bridge the original splice without moving the car.
+  beam('32278',1,v(s*3.8,.2,.6),v(s*3.8,3,.6),Z,'upright backing 15L');
+  beam('32524',1,v(s*3.8,3,.8),v(s*3.8,4.2,.8),Z,'upper backing 7L');
+  for(const y of [.4,1.2,2])shaft('2780',1,v(s*3.8,y,.7),Z,'lower backing tie');
+  for(const y of [2.4,2.8,3])shaft('6558',1,v(s*3.8,y,.8),Z,'staggered three-layer splice');
+  for(const y of [3.4,3.8])shaft('2780',1,v(s*3.8,y,.9),Z,'upper backing tie');
+  // A retained axle joins the backing, upright and lower diagonal at their knee.
+  spacer(1,v(s*3.8,1.6,1.2),Z);
+  shaft('3707',1,v(s*3.8,1.6,1),Z,'retained knee axle');
+  bush('3713',1,v(s*3.8,1.6,.4),Z,'knee rear retention');
+  bush('3713',2,v(s*3.8,1.6,1.6),Z,'knee front retention');
+  beam('32525',2,v(s*3.8,1.6,1.4),v(s*2.6,3.2,1.4),Z,'upper 6–8–10 knee brace');
+  shaft('2780',2,v(s*2.6,3.2,1.3),Z,'knee / bridge');
  }
  for(const y of [3.2,3.6]){
   for(const s of [-1,1]){
    beam('32278',2,v(s*1,y,1.2),v(s*3.8,y,1.2),Z,'outer bridge 15L');
-   shaft('2780',2,v(s*3.8,y,1.1),Z,'bridge / upright');
+   shaft('6558',2,v(s*3.8,y,1),Z,'bridge / doubled upright');
    for(const x of [1,1.4])shaft('2780',2,v(s*x,y,1.3),Z,'bridge overlap pin');
   }
   beam('32278',2,v(-1.4,y,1.4),v(1.4,y,1.4),Z,'central bridge 15L');
