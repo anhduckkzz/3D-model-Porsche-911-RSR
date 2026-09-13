@@ -1,0 +1,149 @@
+[
+  {
+    "id": "42096",
+    "brand": "Porsche",
+    "name": "Porsche 911 RSR",
+    "shortName": "911 RSR",
+    "scale": "1:10",
+    "category": "GTE",
+    "year": 2019,
+    "pieces": 1580,
+    "accent": "#b7382b",
+    "assetPath": "/model",
+    "available": true,
+    "ownerTools": true,
+    "minimumParts": 1422,
+    "source": {
+      "author": "Philippe Hurbain (Philo)",
+      "url": "https://forums.ldraw.org/thread-23139.html",
+      "license": "CC BY 2.0",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42056",
+    "brand": "Porsche",
+    "name": "Porsche 911 GT3 RS",
+    "shortName": "911 GT3 RS",
+    "scale": "1:8",
+    "category": "GT3 RS",
+    "year": 2016,
+    "pieces": 2704,
+    "accent": "#c77525",
+    "assetPath": "/models/42056",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 2433,
+    "source": {
+      "author": "Philippe Hurbain (Philo)",
+      "url": "https://forums.ldraw.org/thread-18214.html",
+      "license": "CC BY 2.0",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42083",
+    "brand": "Bugatti",
+    "name": "Bugatti Chiron",
+    "shortName": "Chiron",
+    "scale": "1:8",
+    "category": "Hypercar",
+    "year": 2018,
+    "pieces": 3599,
+    "accent": "#23649d",
+    "assetPath": "/models/42083",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 3239,
+    "source": {
+      "author": "Philippe Hurbain (Philo)",
+      "url": "https://forums.ldraw.org/thread-22643.html",
+      "license": "CC BY 2.0",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42115",
+    "brand": "Lamborghini",
+    "name": "Lamborghini Sián FKP 37",
+    "shortName": "Sián FKP 37",
+    "scale": "1:8",
+    "category": "Hypercar",
+    "year": 2020,
+    "pieces": 3696,
+    "accent": "#81933c",
+    "assetPath": "/models/42115",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 3326,
+    "source": {
+      "author": "Jens Brühl (jb70)",
+      "url": "https://forums.ldraw.org/thread-23815.html",
+      "license": "CC BY 2.0",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42143",
+    "brand": "Ferrari",
+    "name": "Ferrari Daytona SP3",
+    "shortName": "Daytona SP3",
+    "scale": "1:8",
+    "category": "Hypercar",
+    "year": 2022,
+    "pieces": 3778,
+    "accent": "#ac2927",
+    "assetPath": "/models/42143",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 3400,
+    "source": {
+      "author": "Jens Brühl (jb70)",
+      "url": "https://forums.ldraw.org/thread-25913.html",
+      "license": "Xem giấy phép trong file nguồn",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42172",
+    "brand": "McLaren",
+    "name": "McLaren P1",
+    "shortName": "P1",
+    "scale": "1:8",
+    "category": "Hypercar · MOD",
+    "year": 2024,
+    "pieces": 3893,
+    "accent": "#cc9b2c",
+    "assetPath": "/models/42172",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 3503,
+    "source": {
+      "author": "Jens Brühl (jb70)",
+      "url": "https://rebrickable.com/mocs/MOC-198397/jb70/42172-pimp-up-my-mclaren/",
+      "license": "Xem giấy phép trong file nguồn",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  },
+  {
+    "id": "42156",
+    "brand": "Peugeot",
+    "name": "Peugeot 9X8",
+    "shortName": "9X8",
+    "scale": "1:10",
+    "category": "LMH",
+    "year": 2023,
+    "pieces": 1775,
+    "accent": "#707571",
+    "assetPath": "/models/42156",
+    "available": false,
+    "ownerTools": false,
+    "minimumParts": 1597,
+    "source": {
+      "author": "Vito Tarantini",
+      "url": "https://forums.ldraw.org/thread-28369.html",
+      "license": "Xem giấy phép trong file nguồn",
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+    }
+  }
+]
