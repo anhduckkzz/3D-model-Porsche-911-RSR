@@ -2,8 +2,11 @@
 import fs from 'node:fs';
 import assert from 'node:assert/strict';
 import * as T from 'three';
-const source=fs.readFileSync('scripts/source/porsche.mpd','utf8');
-const model=JSON.parse(fs.readFileSync('public/model/model.json','utf8'));
+const setId=process.argv[2]??'42096';
+const entry=JSON.parse(fs.readFileSync('public/showroom.json','utf8')).find(x=>x.id===setId);assert(entry);
+const output='public'+entry.assetPath;
+const source=fs.readFileSync(setId==='42096'?'scripts/source/porsche.mpd':`scripts/source/${setId}.mpd`,'utf8');
+const model=JSON.parse(fs.readFileSync(output+'/model.json','utf8'));
 const normalize=n=>n.trim().replaceAll('\\','_').replaceAll('/','_').toLowerCase();
 const files=new Map();let file;
 for(const line of source.split(/\r?\n/)){
@@ -16,7 +19,7 @@ const atomic=n=>/\.dat$/i.test(n)||/shock-|technicrib|technicflex/i.test(n);
 const nodes=[],events=[],leaves=[];
 function visit(name,parent,world){
  const f=files.get(normalize(name));assert(f,'Missing submodel '+name);
- const node={id:nodes.length,parent,name:f.name.replace(/^42096 - /i,'').replace(/\.ldr$/i,''),children:[],parts:[],events:[],start:events.length+1,end:0};nodes.push(node);
+ const node={id:nodes.length,parent,name:f.name.replace(/^\d{5} - /i,'').replace(/\.ldr$/i,''),children:[],parts:[],events:[],start:events.length+1,end:0};nodes.push(node);
  for(const ref of f.refs){const matrix=world.clone().multiply(ref.matrix);
   if(atomic(ref.name)){const id=leaves.length;leaves.push({name:ref.name,matrix});node.parts.push(id);node.events.push(events.length);events.push({node:node.id,kind:'part',parts:[id]})}
   else{const child=visit(ref.name,node.id,matrix);node.children.push(child.id);node.parts.push(...child.parts);node.events.push(events.length);events.push({node:node.id,kind:'attach',child:child.id,parts:child.parts})}
@@ -35,7 +38,7 @@ for(const [i,leaf] of leaves.entries()){
  const actual=leaf.matrix.clone().premultiply(conversion);actual.elements[12]+=offset.x;actual.elements[13]+=offset.y;actual.elements[14]+=offset.z;
  assert(actual.elements.every((v,j)=>Math.abs(v-model.parts[i].matrix[j])<.0001),'Element transform mismatch '+i);
 }
-for(const node of nodes){node.group=model.parts[node.parts[0]]?.group??'chassis';node.label=node.parent===null?'Porsche 911 RSR':node.name.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[-_]/g,' ')}
+for(const node of nodes){node.group=model.parts[node.parts[0]]?.group??'chassis';node.label=node.parent===null?entry.name:node.name.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/[-_]/g,' ')}
 const result={version:1,root:0,nodes,events};
-fs.writeFileSync('public/model/assembly.json',JSON.stringify(result));
+fs.writeFileSync(output+'/assembly.json',JSON.stringify(result));
 console.log({nodes:nodes.length,events:events.length,parts:leaves.length,maximumDepth:Math.max(...nodes.map(n=>{let d=0;while(n.parent!==null){d++;n=nodes[n.parent]}return d}))});
