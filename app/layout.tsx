@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./model-color-calibration.css";
 
 export const metadata: Metadata = {
   title: "Technic Showroom — Interactive Assembly",
