@@ -1,9 +1,0 @@
-/*
- * The WebGL pipeline intentionally bakes LDraw colors into lightweight vertex
- * colors so thousands of Technic pieces can stay instanced. Restore a little
- * of the contrast/saturation lost through the bright neutral scene without
- * changing any authored LEGO color in the model data.
- */
-.canvas-host > canvas {
-  filter: saturate(1.12) contrast(1.07) brightness(0.97);
-}
