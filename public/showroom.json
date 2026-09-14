@@ -97,7 +97,7 @@
     "pieces": 3778,
     "accent": "#ac2927",
     "assetPath": "/models/42143",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 3400,
     "source": {
@@ -118,7 +118,7 @@
     "pieces": 3893,
     "accent": "#cc9b2c",
     "assetPath": "/models/42172",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 3503,
     "source": {
@@ -139,7 +139,7 @@
     "pieces": 1775,
     "accent": "#707571",
     "assetPath": "/models/42156",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 1597,
     "source": {

@@ -40,7 +40,7 @@ next-env.d.ts
 /.sites-runtime/
 /outputs/
 /work/
-
+/assets/
 *.tsbuildinfo
 
 # Local Python controller
