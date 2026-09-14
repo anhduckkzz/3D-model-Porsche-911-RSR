@@ -1,6 +1,6 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {gzipSync} from 'node:zlib';
+import {gzipSync,gunzipSync} from 'node:zlib';
 import {MeshoptSimplifier} from 'meshoptimizer';
 await MeshoptSimplifier.ready;
 import * as THREE from 'three';
@@ -16,7 +16,7 @@ globalThis.ProgressEvent=class{constructor(type,values){this.type=type;Object.as
 const lookup=new Map();async function index(dir){for(const e of await fs.readdir(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())await index(p);else lookup.set(path.relative(library,p).toLowerCase().replaceAll('\\','/'),p)}}await index(library);
 const usedFiles=new Set();const originalFetch=globalThis.fetch;globalThis.fetch=async(request,options)=>{const u=typeof request==='string'?request:request.url;if(!u.startsWith('http://ldraw.local/'))return originalFetch(request,options);const key=decodeURIComponent(u.slice('http://ldraw.local/'.length)).toLowerCase();const file=lookup.get(key);if(!file)return new Response('Not found',{status:404});usedFiles.add(file);return new Response(await fs.readFile(file),{headers:{'Content-Type':'text/plain'}})};
 const loader=new LDrawLoader();loader.setConditionalLineMaterial(LDrawConditionalLineMaterial);loader.setPartsLibraryPath('http://ldraw.local/');await loader.preloadMaterials('http://ldraw.local/LDConfig.ldr');
-let mpd=await fs.readFile(sourcePath,'utf8');
+let mpd;try{mpd=await fs.readFile(sourcePath,'utf8')}catch(error){if(error.code!=='ENOENT')throw error;mpd=gunzipSync(await fs.readFile(sourcePath+'.gz')).toString('utf8')}
 const embeddedNames=[...mpd.matchAll(/^0 FILE (.+)\r?$/gm)].map(m=>m[1].trim()).filter(n=>/[\\/]/.test(n));
 for(const n of embeddedNames.sort((a,b)=>b.length-a.length))mpd=mpd.replaceAll(n,n.replaceAll('\\','_').replaceAll('/','_'));
 
@@ -26,7 +26,7 @@ model.updateMatrixWorld(true);
 let groupCount=0,meshes=0;const types={};model.traverse(x=>{if(x.isGroup){groupCount++;types[x.userData.type]=(types[x.userData.type]??0)+1}if(x.isMesh)meshes++});console.log('PARSED',groupCount,meshes,types,model.userData);
 const parts=[],geoMeta=[],geometries=[],geoCache=new Map(),steps=[],groupIds=new Map();
 const rawFiles={};let rawName='';for(const l of mpd.split(/\r?\n/)){if(l.startsWith('0 FILE ')){rawName=l.slice(7).replaceAll('\\','/').toLowerCase();rawFiles[rawName]=[]}else if(rawName)rawFiles[rawName].push(l)}
-const atomic=(g)=>g.isGroup&&((g.userData.fileName??g.name??'').toLowerCase().endsWith('.dat')||/^(?:Unofficial_)?Part$/.test(g.userData.type??'')||/shock-|technicrib|technicflex/i.test(g.name));
+const atomic=(g)=>g.isGroup&&((g.userData.fileName??g.name??'').toLowerCase().endsWith('.dat')||/^(?:Unofficial_)?Part$/.test(g.userData.type??'')||/shock-|technicrib|technicflex/i.test(g.name)||(rawFiles[(g.userData.fileName||g.name||'').toLowerCase()]??[]).some(l=>/^0 !LDCAD CONTENT .*type=path/.test(l)));
 let phase=0;
 function groupFor(name){const n=name.toLowerCase();if(/engine/.test(n))return 'engine';if(/frontaxle|steering|shocksupport|shock-/.test(n))return 'suspension';if(/seat|dashboard/.test(n))return 'cockpit';if(/door/.test(n))return 'doors';if(/roof/.test(n))return 'roof';if(/spoiler|rearbump/.test(n))return 'rear';if(/front|hood|headlight/.test(n))return 'front';return 'chassis'}
 const reflect=new THREE.Matrix4().makeRotationX(Math.PI);
@@ -41,7 +41,7 @@ function extractPart(g,group,step){
   merged.computeBoundingBox();const box=merged.boundingBox;const c=merged.attributes.color;const sample=new THREE.Color(c.getX(0),c.getY(0),c.getZ(0));const desc=(rawFiles[name?.toLowerCase()]??[]).find(l=>l.startsWith('0 ')&&!/^0 (FILE|Name:|Author:|!)/.test(l))?.slice(2)||name;
   geoMeta.push({name,description:desc,colorHex:'#'+sample.getHexString(),bounds:[box.min.toArray(),box.max.toArray()]});
  }
- if(/(56908|15038|56145|44777|44771|6595)\.dat$/i.test(name))group='wheels';
+ if(/(56908|15038|56145|44777|44771|6595)\.dat$/i.test(name)||/^(?:Tyre|Tire|Wheel Rim)\b/i.test(geoMeta[geo].description))group='wheels';
  const matrix=new THREE.Matrix4().multiplyMatrices(reflect,g.matrixWorld);
  const part={id:parts.length,geo,group,step,matrix:matrix.toArray()};parts.push(part);return part;
 }

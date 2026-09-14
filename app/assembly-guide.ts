@@ -11,7 +11,7 @@ export function assemblyFrame(plan:AssemblyPlan,step:number){
 }
 export function assemblyLabel(node:AssemblyNode,data:ModelData){
  if(node.parent===null)return node.label;
- const labels:Record<string,string>={engine:'Động cơ & truyền động',frontaxle:'Trục trước',dashboard:'Bảng điều khiển',leftdoor:'Cửa trái',rightdoor:'Cửa phải',roof:'Mui xe',spoiler:'Cánh gió',rearbump:'Cản sau',hood:'Nắp trước',seat:'Ghế',headlight:'Đèn trước',steering:'Cơ cấu lái',shocksupport:'Giá giảm xóc'};
+ const labels:Record<string,string>={gearbox:'Hộp số',transmission:'Truyền động',differential:'Vi sai',chassis:'Khung xe',body:'Thân xe',engine:'Động cơ & truyền động',frontaxle:'Trục trước',dashboard:'Bảng điều khiển',leftdoor:'Cửa trái',rightdoor:'Cửa phải',roof:'Mui xe',spoiler:'Cánh gió',rearbump:'Cản sau',hood:'Nắp trước',seat:'Ghế',headlight:'Đèn trước',steering:'Cơ cấu lái',shocksupport:'Giá giảm xóc'};
  for(const [key,label]of Object.entries(labels))if(node.name.toLowerCase().includes(key))return label+' · '+String(node.id).padStart(2,'0');
- return (data.groups.find(g=>g.id===node.group)?.label??node.label)+' · '+String(node.id).padStart(2,'0');
+ return (node.label||data.groups.find(g=>g.id===node.group)?.label||node.name)+' · '+String(node.id).padStart(2,'0');
 }

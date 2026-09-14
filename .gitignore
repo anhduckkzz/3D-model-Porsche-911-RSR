@@ -47,3 +47,6 @@ next-env.d.ts
 __pycache__/
 *.pyc
 .venv/
+
+# Canonical additional CAD sources are stored compressed.
+/scripts/source/42*.mpd

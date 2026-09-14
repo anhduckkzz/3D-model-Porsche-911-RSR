@@ -38,7 +38,7 @@ function CarViewer({car,initialMode='explore',onShowroom,onOwner}:{car:ShowroomC
  const play=useCallback(()=>{if(!playing&&step===maximum)changeStep(1);setPlaying(p=>!p)},[playing,step,maximum,changeStep]);
  useEffect(()=>{if(!playing||mode!=='build')return;const timer=setInterval(()=>{setStep(s=>{if(s>=maximum){setPlaying(false);return s}return s+1});setSelected(null)},2200/Number(speed));return()=>clearInterval(timer)},[playing,mode,maximum,speed]);
  useEffect(()=>{const key=(e:KeyboardEvent)=>{const el=e.target as HTMLElement;if(el.closest('input,button,[role=slider],[role=combobox],[role=dialog]'))return;if(e.key==='Escape'){setSelected(null);setGroupsOpen(false)}if(mode!=='build')return;if(e.key==='ArrowRight'){e.preventDefault();setPlaying(false);changeStep(step+1)}if(e.key==='ArrowLeft'){e.preventDefault();setPlaying(false);changeStep(step-1)}if(e.code==='Space'){e.preventDefault();play()}};window.addEventListener('keydown',key);return()=>window.removeEventListener('keydown',key)},[mode,step,changeStep,play]);
- const selectMode=(value:string)=>{setMode(value as ViewerMode);setSelected(null);setGroup('all');setPlaying(false);setExplode(0)};
+ const selectMode=(value:string)=>{history.replaceState(null,'',`?car=${car.id}&mode=${value}`);setMode(value as ViewerMode);setSelected(null);setGroup('all');setPlaying(false);setExplode(0)};
  const reset=()=>{setExplode(0);setGroup('all');setSelected(null);scene.current?.view('iso')};
  const selectPart=useCallback((id:number|null)=>{setSelected(id);setPlaying(false)},[]);
  return <TooltipProvider delayDuration={300}><Tabs value={mode} onValueChange={selectMode}><main className={`workbench ${mode}-mode`} ref={main}>

@@ -1,21 +1,24 @@
 /** Recover instance-level subassemblies without reprocessing the geometry library. */
 import fs from 'node:fs';
+import {gunzipSync} from 'node:zlib';
 import assert from 'node:assert/strict';
 import * as T from 'three';
 const setId=process.argv[2]??'42096';
 const entry=JSON.parse(fs.readFileSync('public/showroom.json','utf8')).find(x=>x.id===setId);assert(entry);
 const output='public'+entry.assetPath;
-const source=fs.readFileSync(setId==='42096'?'scripts/source/porsche.mpd':`scripts/source/${setId}.mpd`,'utf8');
+const sourcePath=setId==='42096'?'scripts/source/porsche.mpd':`scripts/source/${setId}.mpd`;
+const source=fs.existsSync(sourcePath)?fs.readFileSync(sourcePath,'utf8'):gunzipSync(fs.readFileSync(sourcePath+'.gz')).toString('utf8');
 const model=JSON.parse(fs.readFileSync(output+'/model.json','utf8'));
 const normalize=n=>n.trim().replaceAll('\\','_').replaceAll('/','_').toLowerCase();
 const files=new Map();let file;
 for(const line of source.split(/\r?\n/)){
- if(line.startsWith('0 FILE ')){file={name:line.slice(7).trim(),refs:[]};files.set(normalize(file.name),file)}
+ if(line.startsWith('0 FILE ')){file={name:line.slice(7).trim(),refs:[],flexible:false};files.set(normalize(file.name),file)}
+ else if(file&&/^0 !LDCAD CONTENT .*type=path/.test(line)){file.flexible=true}
  else if(file&&line.startsWith('1 ')){const t=line.trim().split(/\s+/);file.refs.push({name:t.slice(14).join(' '),matrix:new T.Matrix4().set(+t[5],+t[6],+t[7],+t[2],+t[8],+t[9],+t[10],+t[3],+t[11],+t[12],+t[13],+t[4],0,0,0,1)})}
 }
 // LDrawLoader stores references as Object3D position/quaternion/scale.
 for(const file of files.values())for(const ref of file.refs){const p=new T.Vector3(),q=new T.Quaternion(),s=new T.Vector3();ref.matrix.decompose(p,q,s);ref.matrix.compose(p,q,s)}
-const atomic=n=>/\.dat$/i.test(n)||/shock-|technicrib|technicflex/i.test(n);
+const atomic=n=>/\.dat$/i.test(n)||/shock-|technicrib|technicflex/i.test(n)||files.get(normalize(n))?.flexible;
 const nodes=[],events=[],leaves=[];
 function visit(name,parent,world){
  const f=files.get(normalize(name));assert(f,'Missing submodel '+name);

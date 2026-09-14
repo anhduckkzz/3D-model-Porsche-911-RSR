@@ -31,14 +31,15 @@
     "pieces": 2704,
     "accent": "#c77525",
     "assetPath": "/models/42056",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 2433,
     "source": {
       "author": "Philippe Hurbain (Philo)",
       "url": "https://forums.ldraw.org/thread-18214.html",
       "license": "CC BY 2.0",
-      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có.",
+      "mirror": "https://github.com/vdirienzo/ldrawomr/blob/99a10d3d5ec094277793eb5919f13163d279cf2e/corpus/mpds_technic/42056-1.mpd"
     }
   },
   {
@@ -52,14 +53,15 @@
     "pieces": 3599,
     "accent": "#23649d",
     "assetPath": "/models/42083",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 3239,
     "source": {
       "author": "Philippe Hurbain (Philo)",
       "url": "https://forums.ldraw.org/thread-22643.html",
       "license": "CC BY 2.0",
-      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có.",
+      "mirror": "https://github.com/vdirienzo/ldrawomr/blob/99a10d3d5ec094277793eb5919f13163d279cf2e/corpus/mpds_technic/42083-1.mpd"
     }
   },
   {
@@ -73,14 +75,15 @@
     "pieces": 3696,
     "accent": "#81933c",
     "assetPath": "/models/42115",
-    "available": false,
+    "available": true,
     "ownerTools": false,
     "minimumParts": 3326,
     "source": {
       "author": "Jens Brühl (jb70)",
       "url": "https://forums.ldraw.org/thread-23815.html",
       "license": "CC BY 2.0",
-      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có."
+      "notes": "Trình tự 3D theo cây cụm của model, không ánh xạ 1:1 với sách LEGO. Một số sticker hoặc chi tiết in có thể chưa có.",
+      "mirror": "https://github.com/vdirienzo/ldrawomr/blob/99a10d3d5ec094277793eb5919f13163d279cf2e/corpus/mpds_technic/42115-1.mpd"
     }
   },
   {

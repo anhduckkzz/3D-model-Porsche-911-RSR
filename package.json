@@ -22,7 +22,9 @@
     "prepare:assembly": "node scripts/prepare-assembly.mjs",
     "test:upgrade": "node --experimental-strip-types scripts/validate-upgrade.mjs",
     "test:link": "node --experimental-strip-types scripts/validate-link.mjs",
-    "test:rig": "node scripts/validate-drive-rig.mjs"
+    "test:rig": "node scripts/validate-drive-rig.mjs",
+    "test:showroom": "node --experimental-strip-types scripts/validate-showroom.mjs",
+    "prepare:showroom": "node scripts/prepare-showroom.mjs"
   },
   "dependencies": {
     "@base-ui/react": "^1.7.0",
