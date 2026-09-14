@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import {LDrawConditionalLineMaterial} from 'three/addons/materials/LDrawConditionalLineMaterial.js';
 import {LDrawLoader} from 'three/addons/loaders/LDrawLoader.js';
 import {mergeGeometries,mergeVertices} from 'three/addons/utils/BufferGeometryUtils.js';
+import {createStudioTextureBaker} from './studio-texture.mjs';
 const library=process.argv[2];
 const setId=process.argv[3]??'42096';
 const entry=JSON.parse(await fs.readFile('public/showroom.json','utf8')).find(x=>x.id===setId);if(!entry)throw Error('Unknown model');
@@ -14,6 +15,7 @@ const output=path.join('public',entry.assetPath);
 const sourcePath=setId==='42096'?'scripts/source/porsche.mpd':`scripts/source/${setId}.mpd`;if(!library)throw Error('Pass extracted LDraw library directory');
 globalThis.ProgressEvent=class{constructor(type,values){this.type=type;Object.assign(this,values)}};
 const lookup=new Map();async function index(dir){for(const e of await fs.readdir(dir,{withFileTypes:true})){const p=path.join(dir,e.name);if(e.isDirectory())await index(p);else lookup.set(path.relative(library,p).toLowerCase().replaceAll('\\','/'),p)}}await index(library);
+const bakeStudioTexture=createStudioTextureBaker(lookup);
 const usedFiles=new Set();const originalFetch=globalThis.fetch;globalThis.fetch=async(request,options)=>{const u=typeof request==='string'?request:request.url;if(!u.startsWith('http://ldraw.local/'))return originalFetch(request,options);const key=decodeURIComponent(u.slice('http://ldraw.local/'.length)).toLowerCase();const file=lookup.get(key);if(!file)return new Response('Not found',{status:404});usedFiles.add(file);return new Response(await fs.readFile(file),{headers:{'Content-Type':'text/plain'}})};
 const loader=new LDrawLoader();loader.setConditionalLineMaterial(LDrawConditionalLineMaterial);loader.setPartsLibraryPath('http://ldraw.local/');await loader.preloadMaterials('http://ldraw.local/LDConfig.ldr');
 let mpd;try{mpd=await fs.readFile(sourcePath,'utf8')}catch(error){if(error.code!=='ENOENT')throw error;mpd=gunzipSync(await fs.readFile(sourcePath+'.gz')).toString('utf8')}
@@ -41,7 +43,12 @@ function extractPart(g,group,step){
    // produced the black/white triangular artifacts seen on the Peugeot body.
    // Seed every vertex with the mesh's base material, then layer authored groups.
    for(let v=0;v<count;v++){c[v*3]=fallback.r;c[v*3+1]=fallback.g;c[v*3+2]=fallback.b}
-   const runs=a.groups.length?a.groups:[{start:0,count,materialIndex:0}];for(const r of runs){const mat=mats[r.materialIndex??0]??mats[0];const tone=mat?.color?.isColor?mat.color:fallback;const start=Math.max(0,Math.min(count,r.start??0)),end=Math.max(start,Math.min(count,start+(r.count??0)));for(let v=start;v<end;v++){c[v*3]=tone.r;c[v*3+1]=tone.g;c[v*3+2]=tone.b}}a.setAttribute('color',new THREE.BufferAttribute(c,3));a.clearGroups();for(const k of Object.keys(a.attributes))if(!['position','normal','color'].includes(k))a.deleteAttribute(k);if(!a.attributes.normal)a.computeVertexNormals();chunks.push(a)});
+   const runs=a.groups.length?a.groups:[{start:0,count,materialIndex:0}];for(const r of runs){const mat=mats[r.materialIndex??0]??mats[0];const tone=mat?.color?.isColor?mat.color:fallback;const start=Math.max(0,Math.min(count,r.start??0)),end=Math.max(start,Math.min(count,start+(r.count??0)));for(let v=start;v<end;v++){c[v*3]=tone.r;c[v*3+1]=tone.g;c[v*3+2]=tone.b}}
+   // BrickLink Studio custom parts can carry an inline PNG and proprietary
+   // projection data in PE_TEX_INFO. Bake the projected decoration into vertex
+   // colors before attributes are stripped for the compact runtime format.
+   bakeStudioTexture(name,a,c);
+   a.setAttribute('color',new THREE.BufferAttribute(c,3));a.clearGroups();for(const k of Object.keys(a.attributes))if(!['position','normal','color'].includes(k))a.deleteAttribute(k);if(!a.attributes.normal)a.computeVertexNormals();chunks.push(a)});
   if(!chunks.length)throw Error('No faces for '+name);
   const merged=mergeVertices(mergeGeometries(chunks),0.001);chunks.forEach(x=>x.dispose());geo=geometries.length;geoCache.set(key,geo);geometries.push(merged);
   merged.computeBoundingBox();const box=merged.boundingBox;const c=merged.attributes.color;const sample=new THREE.Color(c.getX(0),c.getY(0),c.getZ(0));const desc=(rawFiles[name?.toLowerCase()]??[]).find(l=>l.startsWith('0 ')&&!/^0 (FILE|Name:|Author:|!)/.test(l))?.slice(2)||name;
