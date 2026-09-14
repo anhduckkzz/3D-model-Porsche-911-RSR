@@ -1,0 +1,7 @@
+/* Per-model display calibration for assets whose authored LDraw colors are
+ * correct but lose too much saturation after the shared PBR/tone-mapping pass.
+ * Keep this scoped to the canvas aria-label so other showroom cars are untouched.
+ */
+.canvas-host > canvas[aria-label^="Bugatti Chiron"] {
+  filter: saturate(1.45) contrast(1.06) brightness(0.96);
+}
