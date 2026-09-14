@@ -34,8 +34,14 @@ const dirnames={chassis:'Khung & kết nối',engine:'Động cơ & truyền đ�
 function extractPart(g,group,step){
  const name=g.userData.fileName||g.name;const inv=g.matrixWorld.clone().invert();let color=String(g.userData.colorCode??'16');const key=name+'|'+color;
  let geo=geoCache.get(key);if(geo===undefined){
-  const chunks=[];const colors=[];
-  g.traverse(m=>{if(!m.isMesh||!m.geometry.attributes.position)return;const a=m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone();a.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,m.matrixWorld));const mats=Array.isArray(m.material)?m.material:[m.material];const count=a.attributes.position.count;const c=new Float32Array(count*3);const runs=a.groups.length?a.groups:[{start:0,count,materialIndex:0}];for(const r of runs){const mat=mats[r.materialIndex??0]??mats[0];for(let v=r.start;v<Math.min(r.start+r.count,count);v++){c[v*3]=mat.color.r;c[v*3+1]=mat.color.g;c[v*3+2]=mat.color.b}}a.setAttribute('color',new THREE.BufferAttribute(c,3));a.clearGroups();for(const k of Object.keys(a.attributes))if(!['position','normal','color'].includes(k))a.deleteAttribute(k);if(!a.attributes.normal)a.computeVertexNormals();chunks.push(a)});
+  const chunks=[];
+  g.traverse(m=>{if(!m.isMesh||!m.geometry.attributes.position)return;const a=m.geometry.index?m.geometry.toNonIndexed():m.geometry.clone();a.applyMatrix4(new THREE.Matrix4().multiplyMatrices(inv,m.matrixWorld));const mats=Array.isArray(m.material)?m.material:[m.material];const fallback=mats.find(mat=>mat?.color?.isColor)?.color??new THREE.Color(0xb0b0b0);const count=a.attributes.position.count;const c=new Float32Array(count*3);
+   // Studio/custom LDraw meshes can have material groups that do not cover every
+   // triangle. Float32Array starts at black, so leaving those gaps untouched
+   // produced the black/white triangular artifacts seen on the Peugeot body.
+   // Seed every vertex with the mesh's base material, then layer authored groups.
+   for(let v=0;v<count;v++){c[v*3]=fallback.r;c[v*3+1]=fallback.g;c[v*3+2]=fallback.b}
+   const runs=a.groups.length?a.groups:[{start:0,count,materialIndex:0}];for(const r of runs){const mat=mats[r.materialIndex??0]??mats[0];const tone=mat?.color?.isColor?mat.color:fallback;const start=Math.max(0,Math.min(count,r.start??0)),end=Math.max(start,Math.min(count,start+(r.count??0)));for(let v=start;v<end;v++){c[v*3]=tone.r;c[v*3+1]=tone.g;c[v*3+2]=tone.b}}a.setAttribute('color',new THREE.BufferAttribute(c,3));a.clearGroups();for(const k of Object.keys(a.attributes))if(!['position','normal','color'].includes(k))a.deleteAttribute(k);if(!a.attributes.normal)a.computeVertexNormals();chunks.push(a)});
   if(!chunks.length)throw Error('No faces for '+name);
   const merged=mergeVertices(mergeGeometries(chunks),0.001);chunks.forEach(x=>x.dispose());geo=geometries.length;geoCache.set(key,geo);geometries.push(merged);
   merged.computeBoundingBox();const box=merged.boundingBox;const c=merged.attributes.color;const sample=new THREE.Color(c.getX(0),c.getY(0),c.getZ(0));const desc=(rawFiles[name?.toLowerCase()]??[]).find(l=>l.startsWith('0 ')&&!/^0 (FILE|Name:|Author:|!)/.test(l))?.slice(2)||name;
