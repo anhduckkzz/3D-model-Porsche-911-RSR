@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import "./render-fidelity.css";
 
 export const metadata: Metadata = {
   title: "Technic Showroom — Interactive Assembly",
